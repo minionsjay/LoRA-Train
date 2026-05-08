@@ -99,7 +99,7 @@ class CountrySafetyClassifier(nn.Module):
         # Use [CLS] token embedding for classification
         pooled = outputs.last_hidden_state[:, 0, :]
         logits = self.classifier(pooled)
-        return logits
+        return logits.float()  # 确保 loss 计算使用 fp32，避免 Half/Float 混合精度问题
 
     def save_pretrained(self, save_dir: str):
         """Save LoRA adapter + classifier head."""
