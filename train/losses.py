@@ -22,20 +22,27 @@ class PerLabelFocalLoss(nn.Module):
         label_list: list[str],
         detection_type_map: dict[str, str],
         focal_config: FocalLossConfig,
+        train_pos_counts: dict[str, int] | None = None,
     ):
         super().__init__()
         self.label_list = label_list
         self.alpha = focal_config.alpha
         self.reduction = focal_config.reduction
 
-        # Build gamma tensor: one value per label
+        # Build gamma tensor: auto-reduce for low-sample labels
+        # Labels with < 100 training samples get gamma=0 (standard BCE)
+        # They don't have enough diversity for Focal Loss to help
         gammas = []
+        gamma_info = {}
         for label in label_list:
             dt = detection_type_map.get(label, "contextual")
             gamma = focal_config.gamma_map.get(dt, 2.0)
+            if train_pos_counts and train_pos_counts.get(label, 0) < 100:
+                gamma = 0.0  # Use standard BCE for low-sample labels
             gammas.append(gamma)
+            gamma_info[label] = gamma
         self.register_buffer("gammas", torch.tensor(gammas, dtype=torch.float))
-        logger.info(f"Per-label gammas: {dict(zip(label_list, gammas))}")
+        logger.info(f"Per-label gammas: {gamma_info}")
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """Compute per-label Focal Loss — optimized for sparse multi-label.
@@ -81,5 +88,6 @@ def get_loss_fn(
     label_list: list[str],
     detection_type_map: dict[str, str],
     focal_config: FocalLossConfig,
+    train_pos_counts: dict[str, int] | None = None,
 ) -> PerLabelFocalLoss:
-    return PerLabelFocalLoss(label_list, detection_type_map, focal_config)
+    return PerLabelFocalLoss(label_list, detection_type_map, focal_config, train_pos_counts)

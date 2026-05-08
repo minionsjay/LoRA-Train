@@ -83,8 +83,13 @@ def train_country(
     )
     model.to(device)
 
-    # Loss function
-    loss_fn = PerLabelFocalLoss(label_list, detection_type_map, fc)
+    # Count positive training samples per label (for adaptive gamma)
+    train_pos_counts = {}
+    for i, label in enumerate(label_list):
+        train_pos_counts[label] = int(sum(1 for lbl in train_ds.labels if lbl[i] > 0))
+
+    # Loss function with adaptive gamma
+    loss_fn = PerLabelFocalLoss(label_list, detection_type_map, fc, train_pos_counts)
     loss_fn.to(device)
 
     # Optimizer and scheduler
