@@ -105,6 +105,7 @@ def train_country(
     best_val_f1 = 0.0
     best_epoch = 0
     patience_counter = 0
+    model_saved = False
     history = {"train_loss": [], "val_f1": [], "val_loss": []}
 
     for epoch in range(tc.num_epochs):
@@ -195,6 +196,7 @@ def train_country(
             # Save best model
             save_dir = os.path.join(dc.output_dir, f"lora-{country_code}")
             model.save_pretrained(save_dir)
+            model_saved = True
             logger.info(f"  Saved best model to {save_dir} (val_f1={val_f1:.4f})")
         else:
             patience_counter += 1
@@ -204,6 +206,15 @@ def train_country(
 
     # Load best model for test evaluation
     best_save_dir = os.path.join(dc.output_dir, f"lora-{country_code}")
+
+    if not model_saved:
+        logger.error(
+            f"[{country_code}] No model was saved — training failed to improve over initial loss.\n"
+            f"  Check: 1) data quality  2) learning rate  3) model compatibility\n"
+            f"  Final training loss: {history['train_loss'][-1] if history['train_loss'] else 'N/A'}"
+        )
+        return None
+
     model = CountrySafetyClassifier.from_pretrained(best_save_dir, tc.base_model, num_labels)
     model.to(device)
     model.eval()
