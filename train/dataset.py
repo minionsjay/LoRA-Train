@@ -172,24 +172,55 @@ class SafetyDataset(Dataset):
         }
 
 
+def _load_csv_samples(csv_path: str, country_code: str) -> list[dict]:
+    """Load samples from a CSV file, filtering by country_code."""
+    import csv
+    samples = []
+    with open(csv_path, encoding="utf-8-sig") as f:
+        for row in csv.DictReader(f):
+            if row.get("country_code", "").upper() == country_code.upper():
+                # Convert is_violation string to bool
+                row["is_violation"] = row.get("is_violation", "false").lower() == "true"
+                samples.append(row)
+    return samples
+
+
 def prepare_country_data(
     data_config: DataConfig,
     country_code: str,
     tokenizer: AutoTokenizer,
 ) -> tuple[SafetyDataset, SafetyDataset, SafetyDataset, list[str], dict[str, str]]:
-    """Load, clean, split, and create datasets for one country."""
+    """Load, clean, split, and create datasets for one country.
+
+    Supports two data sources:
+    1. Per-country JSONL directory: data_config.input_dir / country_code / *.jsonl
+    2. Merged CSV file: data_config.input_dir / safety_training_data.csv
+    """
     input_dir = Path(data_config.input_dir)
+
+    # Try merged CSV first, then per-country JSONL directory
+    merged_csv = input_dir / "safety_training_data.csv"
     country_dir = input_dir / country_code
 
-    if not country_dir.is_dir():
-        raise FileNotFoundError(f"Data directory not found: {country_dir}")
-
-    # Load all JSONL files for this country
     all_samples = []
-    for fpath in sorted(country_dir.glob("*.jsonl")):
-        samples = load_and_clean_jsonl(str(fpath))
-        logger.info(f"Loaded {len(samples)} clean samples from {fpath.name}")
-        all_samples.extend(samples)
+
+    if merged_csv.exists():
+        logger.info(f"Loading from merged CSV: {merged_csv}")
+        all_samples = _load_csv_samples(str(merged_csv), country_code)
+        logger.info(f"Loaded {len(all_samples)} samples for {country_code}")
+    elif country_dir.is_dir():
+        logger.info(f"Loading from JSONL directory: {country_dir}")
+        for fpath in sorted(country_dir.glob("*.jsonl")):
+            samples = load_and_clean_jsonl(str(fpath))
+            logger.info(f"Loaded {len(samples)} clean samples from {fpath.name}")
+            all_samples.extend(samples)
+    else:
+        raise FileNotFoundError(
+            f"Data not found. Looked for:\n"
+            f"  - CSV: {merged_csv}\n"
+            f"  - JSONL: {country_dir}/\n"
+            f"Copy data from the source machine or run 'python -m generate.data_mgmt export-csv' first."
+        )
 
     if not all_samples:
         raise ValueError(f"No samples found for country {country_code}")

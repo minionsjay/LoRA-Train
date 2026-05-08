@@ -3,20 +3,19 @@
 # ============================================================
 
 training:
-  base_model: "microsoft/mdeberta-v3-base"   # 微软多语言 DeBERTa V3
-  max_length: 256
-  batch_size: 16
-  learning_rate: 0.0002
-  num_epochs: 10
-  warmup_ratio: 0.1
-  weight_decay: 0.01
-  eval_steps: 20
-  logging_steps: 10
-  save_best: true
-  early_stopping_patience: 3
+  base_model: "/path/to/mdeberta-v3-base"   # 本地模型路径，改这里
+  max_length: 256                 # 最大 token 长度，内容审核文本一般 128-256 够用
+  batch_size: 32                  # 16GB 显存可以用 32，加快训练
+  learning_rate: 0.0002           # LoRA 推荐 1e-4 到 5e-4
+  num_epochs: 10                  # 训练轮数，配合 early_stopping 自动停
+  warmup_ratio: 0.1               # 前 10% steps 线性 warmup
+  weight_decay: 0.01              # L2 正则化
+  eval_steps: 20                  # 每隔 N 步验证一次
+  logging_steps: 10               # 每隔 N 步打印 loss
+  save_best: true                 # 保留验证集最优模型
+  early_stopping_patience: 3      # 验证集 N 轮不提升则停止
   seed: 42
-  # CPU 训练时使用较小的 batch
-  cpu_batch_size: 2               # CPU 极限省内存
+  cpu_batch_size: 2               # CPU 退化用，GPU 机器忽略
 
 lora:
   r: 16
@@ -25,7 +24,7 @@ lora:
   target_modules: ["query_proj", "value_proj"]   # DeBERTa V3 的 attention 模块名
 
 data:
-  input_dir: "output"              # JSONL 文件所在目录
+  input_dir: "data_csv"            # 数据目录: 支持 CSV (safety_training_data.csv) 或 JSONL (output/{country}/*.jsonl)
   taxonomy_dir: "taxonomy"         # Taxonomy JSON 所在目录
   output_dir: "trained_models"     # 训练好的模型保存目录
   train_ratio: 0.8
