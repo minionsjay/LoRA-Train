@@ -79,15 +79,16 @@ class CountrySafetyClassifier(nn.Module):
         )
         self.encoder = get_peft_model(self.encoder, peft_config)
 
-        # Classification head
+        # Classification head — match encoder dtype (fp16 on GPU, fp32 on CPU)
         hidden_size = AutoConfig.from_pretrained(base_model_name).hidden_size
+        encoder_dtype = next(self.encoder.parameters()).dtype
         self.classifier = nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(hidden_size, hidden_size // 2),
             nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_size // 2, num_labels),
-        )
+        ).to(dtype=encoder_dtype)
 
         trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
         total = sum(p.numel() for p in self.parameters())
@@ -133,6 +134,7 @@ class CountrySafetyClassifier(nn.Module):
         model.num_labels = num_labels
         model.encoder = encoder
 
+        encoder_dtype = next(model.encoder.parameters()).dtype
         hidden_size = AutoConfig.from_pretrained(base_model_name).hidden_size
         model.classifier = nn.Sequential(
             nn.Dropout(0.1),
@@ -140,9 +142,12 @@ class CountrySafetyClassifier(nn.Module):
             nn.GELU(),
             nn.Dropout(0.1),
             nn.Linear(hidden_size // 2, num_labels),
-        )
+        ).to(dtype=encoder_dtype)
         classifier_path = os.path.join(save_dir, "classifier.pt")
-        model.classifier.load_state_dict(torch.load(classifier_path, map_location="cpu"))
+        state_dict = torch.load(classifier_path, map_location="cpu")
+        # Convert loaded fp32 weights to match encoder dtype
+        state_dict = {k: v.to(dtype=encoder_dtype) for k, v in state_dict.items()}
+        model.classifier.load_state_dict(state_dict)
         model.classifier.eval()
 
         return model
