@@ -1,0 +1,172 @@
+{
+  "$id": "cultural_context_routing_map",
+  "title": "文化语境路由表",
+  "description": "推理时的两级路由决策表。第一级: 文化语境检测（Context Detector 输出文化语境标识符）。第二级: 根据文化语境挂载对应 LoRA 模块。解决 'language ≠ country' 的核心工程问题: 泰语可能来自柬埔寨, 关于沙特的英文政治讨论可能来自美国, 印尼语内容可能在马来西亚被消费。",
+
+  "routing_architecture": {
+    "stage_1": {
+      "name": "Cultural Context Detector",
+      "description": "轻量级文本分类器 (参数量 ≤ 10M)，判断文本讨论的是哪个文化语境。不判断违规与否，只判断内容指向的文化空间。",
+      "output": "cultural_context identifier (e.g., 'th_royal_context', 'id_islamic_context')",
+      "fallback": "unknown_context → 仅使用 Base 模型判断 global violations"
+    },
+    "stage_2": {
+      "name": "LoRA Dispatcher",
+      "description": "根据 Stage 1 输出的文化语境，动态挂载对应国家的 LoRA 模块。支持多语境叠加（同一内容可能同时触发多个文化语境，如讨论泰国政治 + 涉及王室）。",
+      "activation_strategy": "top_3_contexts_with_threshold_0.3"
+    }
+  },
+
+  "cultural_context_index": {
+    "th_royal_context": {
+      "description": "内容涉及泰国君主制、王室成员、或泰国刑法第112条相关话题",
+      "trigger_indicators": ["提及泰王/王后/王储", "使用 112 数字编码", "泰国政治+王室交叉话题"],
+      "routes_to": ["TH"],
+      "lora_modules": ["LoRA-TH"],
+      "priority": "highest"
+    },
+    "th_political_context": {
+      "description": "内容涉及泰国的政治运动、政党冲突、或街头政治",
+      "trigger_indicators": ["泰国政党名称", "泰国政治口号", "曼谷/清迈等关键词+政治语境"],
+      "routes_to": ["TH"],
+      "lora_modules": ["LoRA-TH"],
+      "priority": "high"
+    },
+    "id_islamic_context": {
+      "description": "内容涉及印尼伊斯兰教相关话题，包括教派关系、宗教礼仪、清真认证等",
+      "trigger_indicators": ["印尼语宗教词汇 (kafir/murtad/Ahmadiyah/Syiah)", "印尼地名+清真寺/宗教事件", "印尼语中引用古兰经或圣训"],
+      "routes_to": ["ID"],
+      "lora_modules": ["LoRA-ID"],
+      "priority": "high"
+    },
+    "id_chinese_indonesian_context": {
+      "description": "内容涉及印尼华裔群体相关话题",
+      "trigger_indicators": ["Cina/Cindo/Chindo/Tionghoa + 印尼语境", "印尼华人商业/政治话题"],
+      "routes_to": ["ID"],
+      "lora_modules": ["LoRA-ID"],
+      "priority": "high"
+    },
+    "sg_multicultural_context": {
+      "description": "内容涉及新加坡多元种族/宗教关系的讨论",
+      "trigger_indicators": ["Singlish 特有的种族指代", "新加坡 CECA/FT/移民政策讨论", "新加坡 CMIO (华马印欧) 种族框架讨论"],
+      "routes_to": ["SG"],
+      "lora_modules": ["LoRA-SG"],
+      "priority": "high"
+    },
+    "mx_narco_context": {
+      "description": "内容涉及墨西哥毒品战争、贩毒集团、或有组织犯罪",
+      "trigger_indicators": ["毒枭集团缩写 (CJNG/CDS/CDN)", "墨西哥特定地区和毒品暴力的关联", "Narcocorrido 相关词汇"],
+      "routes_to": ["MX"],
+      "lora_modules": ["LoRA-MX"],
+      "priority": "high"
+    },
+    "mx_gender_context": {
+      "description": "内容涉及墨西哥女性权益、性别暴力、或大男子主义讨论",
+      "trigger_indicators": ["feminicidio/ni una menos 关键词", "墨西哥西班牙语的性别侮辱词汇", "Machismo 讨论"],
+      "routes_to": ["MX"],
+      "lora_modules": ["LoRA-MX"],
+      "priority": "medium"
+    },
+    "br_political_context": {
+      "description": "内容涉及巴西政治极端化、民主制度质疑、或军事干预号召",
+      "trigger_indicators": ["intervenção militar/golpe 关键词", "STF/US 最高联邦法院攻击", "urna eletrônica 电子投票质疑"],
+      "routes_to": ["BR"],
+      "lora_modules": ["LoRA-BR"],
+      "priority": "high"
+    },
+    "br_racial_context": {
+      "description": "内容涉及巴西种族关系、针对黑人或原住民的歧视",
+      "trigger_indicators": ["macaco 在贬义语境", "巴西种族主义相关的辩论话术", "针对 Candomblé/Umbanda 的宗教歧视"],
+      "routes_to": ["BR"],
+      "lora_modules": ["LoRA-BR"],
+      "priority": "high"
+    },
+    "sa_islamic_context": {
+      "description": "内容涉及伊斯兰教神圣性、亵渎、或沙特宗教法律",
+      "trigger_indicators": ["阿拉伯语宗教侮辱词汇", "对先知/古兰经的贬损", "اللحاد / 无神论倡导"],
+      "routes_to": ["SA"],
+      "lora_modules": ["LoRA-SA"],
+      "priority": "highest"
+    },
+    "sa_royal_context": {
+      "description": "内容涉及沙特王室成员或国家治理体制",
+      "trigger_indicators": ["آل سعود / Al Saud 引用", "对国王/王储的直接批评", "沙特2030愿景的恶意攻击"],
+      "routes_to": ["SA"],
+      "lora_modules": ["LoRA-SA"],
+      "priority": "highest"
+    },
+    "tr_national_context": {
+      "description": "内容涉及土耳其国家尊严、国父阿塔图尔克、或共和国象征",
+      "trigger_indicators": ["Atatürk 引用", "土耳其国旗/国歌引用", "TCK 299/301 管辖范围话题"],
+      "routes_to": ["TR"],
+      "lora_modules": ["LoRA-TR"],
+      "priority": "highest"
+    },
+    "tr_kurdish_context": {
+      "description": "内容涉及库尔德问题、PKK/分离主义、或库尔德语政治表达",
+      "trigger_indicators": ["库尔德语 (Kurmancî) 政治内容", "PKK/Öcalan 引用", "Kürdistan 政治性使用"],
+      "routes_to": ["TR"],
+      "lora_modules": ["LoRA-TR"],
+      "priority": "high"
+    },
+    "za_racial_context": {
+      "description": "内容涉及南非种族关系、种族隔离历史、或跨种族冲突",
+      "trigger_indicators": ["K-word 的使用或变体", "Apartheid 相关话题", "南非种族暴力煽动"],
+      "routes_to": ["ZA"],
+      "lora_modules": ["LoRA-ZA"],
+      "priority": "highest"
+    },
+    "za_xenophobia_context": {
+      "description": "内容涉及南非排外主义、针对非洲外国人的攻击",
+      "trigger_indicators": ["amakwerekwere/kwerekwere 使用", "Operation Dudula 相关", "外籍移民+犯罪关联叙事"],
+      "routes_to": ["ZA"],
+      "lora_modules": ["LoRA-ZA"],
+      "priority": "high"
+    }
+  },
+
+  "cross_context_examples": [
+    {
+      "scenario": "马来西亚用户用印尼语讨论印尼的 SARA 问题",
+      "language_detected": "id",
+      "location_detected": "MY",
+      "stage_1_context": "id_islamic_context",
+      "stage_2_loras": ["LoRA-ID"],
+      "note": "语言 + 文化语境指向印尼，即使内容来自马来西亚。不激活马来西亚的特有规则。"
+    },
+    {
+      "scenario": "美国用户用英语发布关于泰国国王的批评内容",
+      "language_detected": "en",
+      "location_detected": "US",
+      "stage_1_context": "th_royal_context",
+      "stage_2_loras": ["LoRA-TH"],
+      "note": "讨论的文化对象是泰国君主制，即使语言是英语、位置是美国。泰国 LoRA 激活。"
+    },
+    {
+      "scenario": "沙特用户用阿拉伯语讨论印尼的伊斯兰教派争议",
+      "language_detected": "ar",
+      "location_detected": "SA",
+      "stage_1_context": "id_islamic_context",
+      "stage_2_loras": ["LoRA-ID"],
+      "note": "内容讨论的是印尼伊斯兰教内部事务，印尼 LoRA 激活。沙特 LoRA 也同时激活以捕获反伊斯兰内容的维度。"
+    },
+    {
+      "scenario": "巴西用户在讨论南非的排外主义现象，使用英语",
+      "language_detected": "pt+en",
+      "location_detected": "BR",
+      "stage_1_context": "za_xenophobia_context",
+      "stage_2_loras": ["LoRA-ZA"],
+      "note": "讨论的文化对象是南非排外主义。南非 LoRA 激活。"
+    }
+  ],
+
+  "context_detector_training_notes": {
+    "description": "训练 Cultural Context Detector 时的注意事项",
+    "rules": [
+      "每个 cultural_context 的训练样本必须包含至少 30% 的非核心语言内容（如 th_royal_context 必须包含英文/中文讨论泰国王室的样本）",
+      "跨语境样本必须作为 multi-label 训练（一条内容可同时属于多个 cultural_context）",
+      "训练时必须包含 10% 的 'unknown_context' 样本（即内容不指向任何特定文化语境，如全球科技新闻）",
+      "负样本构造: 对每个 cultural_context 生成边界样本（如使用该语境的关键词但讨论完全无关的话题）"
+    ]
+  }
+}

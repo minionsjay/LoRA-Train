@@ -1,0 +1,22 @@
+Generate {{ count }} negative (non-violation) training samples for the following boundary case.
+
+=== TAXONOMY CONTEXT ===
+Country: {{ country_name }} ({{ country_code }})
+Label: {{ label }}
+Definition: {{ description }}
+
+=== BOUNDARY CASE ===
+Scenario: {{ scenario }}
+Why this is SAFE (not a violation): {{ rationale }}
+
+=== GENERATION RULES ===
+1. Every sample must be a clear NON-VIOLATION per the rationale provided above.
+2. Include subtle cues that make it overlap superficially with the violation: mention the same topic, use similar vocabulary, reference the same cultural context — but do so in a way that is clearly safe.
+3. Vary the writer's perspective:
+   {{ perspective_suggestions }}
+4. For keyword_sensitive labels: use the trigger keywords but in benign contexts (e.g., quoted references, technical/academic jargon, historical documents, news reporting).
+5. For contextual labels: mimic the discourse style of the cultural context but with neutral/objective framing.
+6. Language: mix of {{ languages | join(", ") }}, with realistic code-switching.
+
+Output exactly {{ count }} JSON objects, one per line. Each object must have these EXACT fields:
+{"text": string, "label": "{{ label }}", "is_violation": false, "boundary_scenario": "{{ scenario }}", "country_code": "{{ country_code }}", "language": string, "generation_strategy": "boundary_negative", "metadata": {"rationale": "{{ rationale }}", "has_keyword": boolean}}

@@ -1,0 +1,44 @@
+{
+  "description": "全球通用基础违规标签 (Base)。所有国家/区域 LoRA 共享的底线规则。基座模型在预训练阶段已具备这些语义的底层表征，仅需微调时做最小适应。",
+  "base_violations": [
+    {
+      "label": "csam",
+      "severity": "CRITICAL",
+      "detection_type": "hybrid",
+      "description": "Child Sexual Abuse Material — 儿童性剥削内容。全球零容忍。",
+      "cross_reference": ["UN_CRC_Article_34", "INHOPE_standards"]
+    },
+    {
+      "label": "terrorism",
+      "severity": "CRITICAL",
+      "detection_type": "hybrid",
+      "description": "恐怖主义宣传、招募、或暴力煽动。",
+      "cross_reference": ["UN_SC_Resolution_1624"]
+    },
+    {
+      "label": "pornography",
+      "severity": "MEDIUM",
+      "detection_type": "contextual",
+      "description": "露骨色情内容。注意: 各地对'露骨'的定义不同，此标签仅覆盖最明确的硬色情。边缘内容交由 Local Delta 判断。",
+      "note": "艺术/教育/医学裸体不应触发此标签，误判风险由 boundary_cases 在各国 local 层控制"
+    },
+    {
+      "label": "violence_gore",
+      "severity": "MEDIUM",
+      "detection_type": "contextual",
+      "description": "极端血腥暴力内容。不包括战争新闻纪实、合法抗议报道等场景。"
+    },
+    {
+      "label": "spam_scam",
+      "severity": "LOW",
+      "detection_type": "keyword_sensitive",
+      "description": "垃圾信息与诈骗。"
+    },
+    {
+      "label": "self_harm",
+      "severity": "HIGH",
+      "detection_type": "contextual",
+      "description": "自残/自杀内容宣扬或指导。"
+    }
+  ]
+}

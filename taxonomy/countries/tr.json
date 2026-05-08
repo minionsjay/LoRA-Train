@@ -1,0 +1,100 @@
+{
+  "country_code": "TR",
+  "country_name": "Turkey",
+  "region": "MENA_AFRICA",
+  "languages": ["tr", "ku", "en"],
+  "cultural_contexts": [
+    "tr_national_context",
+    "tr_political_context",
+    "tr_kurdish_context",
+    "tr_secular_context"
+  ],
+  "base_violations": ["csam", "terrorism", "pornography", "violence_gore", "spam_scam", "self_harm"],
+  "regional_adapter": "MENA_AFRICA",
+  "local_violations": [
+    {
+      "label": "local_tr_insulting_state",
+      "severity": "CRITICAL",
+      "detection_type": "contextual",
+      "description": "Insulting the Turkish Republic, the President, Atatürk (founder of modern Turkey), or symbols of state sovereignty (flag, national anthem, currency). Enforced under Turkish Penal Code Articles 299 (insulting the President) and 301 (denigrating Turkishness/the State).",
+      "cultural_context": ["tr_national_context", "tr_political_context"],
+      "triggers": {
+        "keywords": [],
+        "patterns": [
+          "针对国父阿塔图尔克 (Atatürk) 的侮辱或贬损",
+          "将现任总统与动物/负面历史人物关联的比喻",
+          "侮辱土耳其国旗 (Ay Yıldız) 或国歌 (İstiklal Marşı)",
+          "使用带有分离主义色彩的词汇指代土耳其国土",
+          "将土耳其称为'傀儡国家'或'殖民地'的叙事"
+        ],
+        "adversarial_variants": [
+          "对总统姓名的故意错误拼写或小写以表示轻蔑",
+          "使用库尔德语/阿拉伯语词汇替代土耳其语敏感词",
+          "英文 + 土耳其语混合编码绕过关键词过滤"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "土耳其反对党领袖在议会辩论中批评政府的经济政策",
+          "should_trigger": false,
+          "rationale": "民主政治中的合法反对与批评是正常政治过程。需区分'政策批评'与'对国家/国父的人身侮辱'。"
+        },
+        {
+          "scenario": "用户在历史论坛讨论阿塔图尔克时代的具体政策决策（如语言改革）的正面和负面影响",
+          "should_trigger": false,
+          "rationale": "历史人物的客观学术讨论 ≠ 侮辱。TCK 301 旨在处罚'贬损'，非客观分析。"
+        },
+        {
+          "scenario": "用户使用贬义动物比喻称呼现任总统，并号召'大家一起来推翻这个XX'",
+          "should_trigger": true,
+          "rationale": "侮辱性人身攻击 + 号召推翻民选领导人 = 违反 TCK 299。"
+        }
+      ]
+    },
+    {
+      "label": "local_tr_separatism_terror",
+      "severity": "CRITICAL",
+      "detection_type": "hybrid",
+      "description": "Content promoting organizations designated as terrorist by Turkey (PKK/KCK, FETÖ/PDY, DHKP-C, ISIS). Includes recruitment, propaganda, fundraising, and the use of separatist symbols or slogans. Also covers content denying the Armenian Genocide if weaponized for hatred.",
+      "cultural_context": ["tr_kurdish_context", "tr_political_context"],
+      "triggers": {
+        "keywords": [
+          "PKK", "KCK", "YPG", "HPG", "TAK",
+          "Apo", "Öcalan", "Serok Apo",
+          "FETÖ", "PDY", "paralel yapı", "Gülen cemaati",
+          "DHKP-C", "TKP-ML", "MLKP",
+          "Kürdistan", "Kürdistan haritası", "Bijî berxwedan"
+        ],
+        "patterns": [
+          "使用 PKK 旗帜/颜色/符号的图像或文字描述",
+          "Öcalan 语录作为行动号召",
+          "招募战斗人员或筹集资金的信息模式",
+          "使用库尔德语 (Kurmancî) 发布的分裂主义宣传",
+          "针对 FETÖ 的阴谋论叙事（需区分合理批评与将这些叙事用于政治猎巫）"
+        ],
+        "adversarial_variants": [
+          "PKK→P.K.K, PeeKayKay, Partiya Karkerên, dağdakiler",
+          "FETÖ→F.E.T.Ö, paralelciler, hainler, Pensilvanya'dakiler",
+          "Kürdistan→K*distan, Kurd1stan, Başurê Kurdistanê"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "土耳其学者在学术论文中分析 PKK 的历史起源和冲突解决的政治前景",
+          "should_trigger": false,
+          "rationale": "学术研究对冲突方的客观分析 ≠ 宣传。需检测是否有号召性/美化性语言。"
+        },
+        {
+          "scenario": "库尔德族用户使用'Kürdistan'一词描述库尔德人聚居的地理区域（如在国际人类学语境下），不附带任何政治主张",
+          "should_trigger": false,
+          "rationale": "'Kürdistan' 一词的地理/文化使用需区分于政治分离主义使用。需检测是否搭配政治主张相关的动词/形容词。"
+        },
+        {
+          "scenario": "用户发文'Bijî berxwedana Kurdistanê! Serok Apo efsanedir! Şehîd namirin!'",
+          "should_trigger": true,
+          "rationale": "明确使用 PKK 相关口号 + Öcalan 领袖崇拜称谓 + 烈士叙事 = 明确的恐怖组织宣传。"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+Generate {{ count }} positive (violation) training samples for the following content safety label.
+
+=== TAXONOMY CONTEXT ===
+Country: {{ country_name }} ({{ country_code }})
+Region: {{ region }}
+Label: {{ label }}
+Severity: {{ severity }}
+Detection Type: {{ detection_type }}
+Definition: {{ description }}
+Cultural Contexts: {{ cultural_contexts | join(", ") }}
+Primary Languages: {{ languages | join(", ") }}
+
+=== KNOWN TRIGGER DATA ===
+Keywords to incorporate naturally: {{ triggers.keywords | join(", ") or "(none — violation expressed through context/implication)" }}
+Behavioral patterns to follow: {{ triggers.patterns | join("; ") or "(none specified)" }}
+Known adversarial variants (expand upon these): {{ triggers.adversarial_variants | join("; ") or "(none specified)" }}
+
+=== GENERATION RULES ===
+{{ keyword_directive }}
+
+Language distribution:
+- {{ lang_primary_pct }}% in {{ primary_languages }} (primary)
+- {{ lang_code_switched_pct }}% with code-switching between languages (realistic for {{ country_name }} online discourse)
+
+Format variety: Mix short posts (5-15 words), medium comments (16-50 words), and longer messages (51-150 words). Cover different genres: social media post, forum debate reply, private message, comment thread, group chat.
+
+Output exactly {{ count }} JSON objects, one per line. Each object must have these EXACT fields:
+{"text": string, "label": "{{ label }}", "is_violation": true, "detection_type": "{{ detection_type }}", "severity": "{{ severity }}", "country_code": "{{ country_code }}", "language": string, "adversarial_technique": string|null, "generation_strategy": "positive", "metadata": {"triggers_used": [string, ...], "cultural_contexts": [string, ...], "has_keyword": boolean}}

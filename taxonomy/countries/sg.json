@@ -1,0 +1,95 @@
+{
+  "country_code": "SG",
+  "country_name": "Singapore",
+  "region": "SEA",
+  "languages": ["en", "zh", "ms", "ta"],
+  "cultural_contexts": [
+    "sg_multicultural_context",
+    "sg_chinese_context",
+    "sg_malay_context",
+    "sg_tamil_context"
+  ],
+  "base_violations": ["csam", "terrorism", "pornography", "violence_gore", "spam_scam", "self_harm"],
+  "regional_adapter": "SEA",
+  "local_violations": [
+    {
+      "label": "local_sg_racial_religious_harmony",
+      "severity": "CRITICAL",
+      "detection_type": "contextual",
+      "description": "Content that undermines racial or religious harmony in Singapore's multi-ethnic society. Covers anti-Chinese, anti-Malay, anti-Indian, and inter-religious provocation. Enforced under the Maintenance of Religious Harmony Act and Sedition Act.",
+      "cultural_context": ["sg_multicultural_context", "sg_malay_context", "sg_tamil_context"],
+      "triggers": {
+        "keywords": [
+          "Ah Tiong", "CECA", "CECA trash", "jiuhu kia",
+          "mati mati", "balik kampung", "pendatang",
+          "murtad", "keling", "pariah",
+          "halal haram police", "Islamisation of SG"
+        ],
+        "patterns": [
+          "Singlish 中针对特定族裔的贬义称呼与刻板印象叙事（如'certain race always...'模式）",
+          "将外籍劳工（尤其是南亚裔）非人化的言论",
+          "利用 CECA 协议进行种族煽动（将经济焦虑包装为种族议题）",
+          "针对清真/饮食/穿着习俗的侮辱性评论"
+        ],
+        "adversarial_variants": [
+          "Ah Tiong→Ah T, Tiong kok, T people",
+          "CECA→C.E.C.A, c3ca, C-people",
+          "pendatang→p3ndatang, pen_dat_ang"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "新加坡用户在讨论 CECA 自由贸易协定的经济影响，引用具体数据和政策条款，未提及任何族裔",
+          "should_trigger": false,
+          "rationale": "CECA 作为自贸协定本身是合法的公共政策讨论话题。需区分'政策辩论'与'以 CECA 为种族攻击工具'。"
+        },
+        {
+          "scenario": "新加坡华人用户使用'Ah Beng'形容自己朋友的行为，带有调侃但无恶意",
+          "should_trigger": false,
+          "rationale": "Ah Beng 作为内部群体自嘲用语与外部攻击用语在语境上截然不同。需判断说话者是否属于该群体以及是否有恶意。"
+        },
+        {
+          "scenario": "用户发表'所有CECA人都应该滚回他们的国家，他们是新加坡一切问题的根源'",
+          "should_trigger": true,
+          "rationale": "明确使用 CECA 作为种族攻击工具，煽动对特定群体的仇恨。"
+        }
+      ]
+    },
+    {
+      "label": "local_sg_vulgarity_singlish",
+      "severity": "MEDIUM",
+      "detection_type": "hybrid",
+      "description": "Local Singlish vulgarities that bypass standard English profanity filters. Heavily influenced by Hokkien, Malay, and Cantonese loanwords.",
+      "cultural_context": ["sg_chinese_context", "sg_multicultural_context"],
+      "triggers": {
+        "keywords": [
+          "CB", "chibai", "KNN", "kanina", "kaninabu",
+          "Nnb", "Nnbc", "lanjiao", "diu", "pok gai",
+          "sohai", "pundeh", "sial", "babi"
+        ],
+        "patterns": [
+          "Singlish 缩写系统: 福建话拼音首字母缩写 (CB/KNN/LJ 系列)",
+          "英语+福建话混合辱骂（如 fucking+方言词）",
+          "粤语脏话作为情绪表达（diu/pok gai 系列）"
+        ],
+        "adversarial_variants": [
+          "CB→C.B, CeeBee, see bee, citrus bee",
+          "KNN→K.N.N, kan nin na, K double N",
+          "chibai→chee bye, chi bye, cb"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "新加坡用户在食阁讨论中提及'CB period'指代断路器（Circuit Breaker）防疫时期",
+          "should_trigger": false,
+          "rationale": "CB 在 COVID 语境下为 Circuit Breaker 的官方缩写，也是新加坡人常用日常用语。需检测是否与粗口续词（如 chibai）搭配。"
+        },
+        {
+          "scenario": "用户使用'KNN'作为机器学习 K-Nearest Neighbors 的缩写讨论算法",
+          "should_trigger": false,
+          "rationale": "技术讨论中的 KNN ≠ 福建话粗口。需检测上下文是否为技术/学术讨论。"
+        }
+      ]
+    }
+  ]
+}

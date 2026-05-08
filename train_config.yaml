@@ -1,0 +1,43 @@
+# ============================================================
+# 文化感知跨语言安全对齐 — 训练配置
+# ============================================================
+
+training:
+  base_model: "microsoft/mdeberta-v3-base"   # 微软多语言 DeBERTa V3
+  max_length: 256
+  batch_size: 16
+  learning_rate: 0.0002
+  num_epochs: 10
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  eval_steps: 20
+  logging_steps: 10
+  save_best: true
+  early_stopping_patience: 3
+  seed: 42
+  # CPU 训练时使用较小的 batch
+  cpu_batch_size: 2               # CPU 极限省内存
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.1
+  target_modules: ["query_proj", "value_proj"]   # DeBERTa V3 的 attention 模块名
+
+data:
+  input_dir: "output"              # JSONL 文件所在目录
+  taxonomy_dir: "taxonomy"         # Taxonomy JSON 所在目录
+  output_dir: "trained_models"     # 训练好的模型保存目录
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  min_samples_per_label: 50        # 每个 label 最少样本数，不足则跳过
+  pos_neg_ratio: 1.0               # 训练时正负样本比例 (1.0 = 1:1)
+
+focal_loss:
+  gamma_map:
+    keyword_sensitive: 0.0         # 标准交叉熵
+    contextual: 2.0                # 强 Focal Loss
+    hybrid: 1.0                    # 中等 Focal Loss
+  alpha: 0.25                      # 正样本权重平衡因子
+  reduction: "mean"

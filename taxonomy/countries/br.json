@@ -1,0 +1,105 @@
+{
+  "country_code": "BR",
+  "country_name": "Brazil",
+  "region": "LATAM",
+  "languages": ["pt", "en"],
+  "cultural_contexts": [
+    "br_political_context",
+    "br_racial_context",
+    "br_favela_context",
+    "br_indigenous_context"
+  ],
+  "base_violations": ["csam", "terrorism", "pornography", "violence_gore", "spam_scam", "self_harm"],
+  "regional_adapter": "LATAM",
+  "local_violations": [
+    {
+      "label": "local_br_political_extremism",
+      "severity": "CRITICAL",
+      "detection_type": "contextual",
+      "description": "Content inciting military coup, attacking the electronic voting system (urnas eletrônicas), the Supreme Federal Court (STF), or calling for the overthrow of democratic institutions. Also covers extreme political polarization that escalates into violence incitement.",
+      "cultural_context": ["br_political_context"],
+      "triggers": {
+        "keywords": [
+          "intervenção militar", "intervencao militar", "golpe militar",
+          "urna eletrônica", "fraude nas urnas", "voto impresso",
+          "STF", "Supremo", "ministros do STF",
+          "comunista", "fascista", "gado", "petralha", "bolsominion",
+          "fechar o congresso", "fechar o STF", "AI-5", "ato institucional"
+        ],
+        "patterns": [
+          "质疑电子投票系统完整性的系统性虚假信息",
+          "呼吁军事干预民主程序的直接号召",
+          "针对最高法院大法官及其家人的暴力威胁",
+          "利用 AI-5（军政府时期最严厉的法令）作为解决政治分歧的'方案'"
+        ],
+        "adversarial_variants": [
+          "intervenção→intervencao, 1ntervenção, interv3nção",
+          "golpe→g0lpe, golp3, g*lpe",
+          "STF→S.T.F, supremo tribunal, os de toga"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "巴西政治学教授在课堂上分析'1964年政变与当前巴西民主制度的对比'",
+          "should_trigger": false,
+          "rationale": "学术/教育场景下的历史比较分析 ≠ 煽动政变。需检测号召性动词（如'precisamos/devemos/temos que'）。"
+        },
+        {
+          "scenario": "用户发文'vamos fechar o STF agora mesmo e colocar os ministros na cadeia!'",
+          "should_trigger": true,
+          "rationale": "明确的号召性动词 + 针对最高法院的暴力威胁 = 政治极端主义。"
+        },
+        {
+          "scenario": "用户讨论电子投票系统的技术改进建议，引用学术论文和对比其他国家的投票系统",
+          "should_trigger": false,
+          "rationale": "理性的技术政策讨论 ≠ 虚假信息攻击。需检查是否有系统性虚假信息标志（如阴谋论句式）。"
+        }
+      ]
+    },
+    {
+      "label": "local_br_structural_racism",
+      "severity": "CRITICAL",
+      "detection_type": "hybrid",
+      "description": "Structural racism against Black Brazilians, favela residents, and indigenous peoples. The word 'macaco' (monkey) when used against Black people is a severe racist crime in Brazil. Also covers colorism-based discrimination and the denial of systemic racism in Brazil.",
+      "cultural_context": ["br_racial_context", "br_favela_context", "br_indigenous_context"],
+      "triggers": {
+        "keywords": [
+          "macaco", "macumbeiro", "criolo", "preto sujo", "neguinho",
+          "favela", "favelado", "marginal",
+          "pardo", "mulato", "cabelo ruim", "cabelo duro",
+          "racismo reverso", "não existe racismo no Brasil",
+          "índio preguiçoso", "bugre"
+        ],
+        "patterns": [
+          "将黑人与动物（尤其是猴子）关联的视觉或文字描述",
+          "将贫民窟居民与犯罪行为必然关联的偏见叙事",
+          "否认巴西存在种族主义的系统性叙事（'racismo reverso' 话术）",
+          "针对非裔巴西宗教（Candomblé/Umbanda）的侮辱性言论",
+          "对原住民的刻板印象和土地权利否定"
+        ],
+        "adversarial_variants": [
+          "macaco→m4c4co, mac@co, m.acaco, macaquinho（指小词变体）",
+          "favelado→f4velado, favel@do",
+          "使用动物 emoji（🐒🐵）替代文字进行种族攻击"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "巴西用户在动物园/动物纪录片帖文下评论'que macaco lindo!'，附带猴子的照片",
+          "should_trigger": false,
+          "rationale": "明确的动物讨论场景。需检测是否有人物指向或种族关联的上文。"
+        },
+        {
+          "scenario": "巴西社会学家发表文章讨论'巴西的结构性种族主义及其社会影响'",
+          "should_trigger": false,
+          "rationale": "反种族主义的学术讨论不应被误判。需识别分析框架 vs 宣扬框架。"
+        },
+        {
+          "scenario": "用户对黑人足球运动员发表评论'seu macaco, volte para a senzala'",
+          "should_trigger": true,
+          "rationale": "典型的种族主义攻击组合用法。macaco + 贬义再结合 senzala（奴隶营）构成明确种族仇恨。"
+        }
+      ]
+    }
+  ]
+}

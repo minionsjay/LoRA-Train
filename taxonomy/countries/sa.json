@@ -1,0 +1,127 @@
+{
+  "country_code": "SA",
+  "country_name": "Saudi Arabia",
+  "region": "MENA_AFRICA",
+  "languages": ["ar", "en"],
+  "cultural_contexts": [
+    "sa_islamic_context",
+    "sa_royal_context",
+    "sa_modesty_context",
+    "sa_expat_context"
+  ],
+  "base_violations": ["csam", "terrorism", "pornography", "violence_gore", "spam_scam", "self_harm"],
+  "regional_adapter": "MENA_AFRICA",
+  "local_violations": [
+    {
+      "label": "local_sa_blasphemy_anti_islam",
+      "severity": "CRITICAL",
+      "detection_type": "contextual",
+      "description": "Blasphemy against Allah, the Prophet Muhammad (PBUH), the Holy Quran, or Islamic sacred symbols. Includes promotion of atheism (ilhad/إلحاد) in ways that attack religious foundations. Zero tolerance — Article 1 of the Basic Law of Governance establishes Islam as the state religion.",
+      "cultural_context": ["sa_islamic_context"],
+      "triggers": {
+        "keywords": [],
+        "patterns": [
+          "针对先知穆罕默德的侮辱性称呼或图画描述",
+          "对古兰经经文的篡改、讽刺或贬损性引用",
+          "直接号召无神论并以攻击性方式贬低伊斯兰教",
+          "使用红海/海湾地区特有的反宗教黑话",
+          "对朝觐 (Hajj/Umrah) 仪式的侮辱性评论"
+        ],
+        "adversarial_variants": [
+          "使用阿拉伯语字母数字组合绕过敏感词过滤（如 نبي→nb1، قرآن→qr2n）",
+          "使用英语/法语音译替代阿拉伯语敏感词",
+          "特定 emoji 组合作为反宗教的加密传达方式",
+          "在宗教文本图片上叠加侮辱性文字（文字+图像需联合检测）"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "用户在哲学论坛用阿拉伯语讨论'不同宗教对神的概念的比较'，保持学术中立语气，没有对伊斯兰教进行价值贬损",
+          "should_trigger": false,
+          "rationale": "比较宗教学的客观学术讨论不应被误判。需检测是否有针对特定宗教的恶意攻击。"
+        },
+        {
+          "scenario": "用户引用一段被断章取义的古兰经经文来证明'伊斯兰教鼓励暴力'的论点",
+          "should_trigger": true,
+          "rationale": "恶意断章取义 + 误导性结论构成对宗教的攻击，不仅是客观批评。"
+        },
+        {
+          "scenario": "什叶派与逊尼派信徒在神学讨论中表达对对方教义的不同看法，语气可能激烈但不涉及对先知等共同神圣对象的攻击",
+          "should_trigger": false,
+          "rationale": "教派间的神学辩论 ≠ 亵渎神明。需判断攻击对象是否为伊斯兰教的共同神圣核心。"
+        }
+      ]
+    },
+    {
+      "label": "local_sa_immorality_lgbtq",
+      "severity": "HIGH",
+      "detection_type": "keyword_sensitive",
+      "description": "Content promoting LGBTQ+ lifestyle, non-traditional gender identity, or content violating public decency/modesty standards (hayā/حياء). Covers both explicit advocacy and coded community signaling.",
+      "cultural_context": ["sa_modesty_context", "sa_islamic_context"],
+      "triggers": {
+        "keywords": [
+          "مثلي", "مثلية", "شاذ", "شذوذ", "لواط",
+          "عبور جنسي", "تحول جنسي", "مجتمع الميم",
+          "pride", "rainbow community",
+          "منقبة فاضحة", "متبرجة", "خلاعة", "فجور"
+        ],
+        "patterns": [
+          "使用彩虹旗 emoji 🏳️‍🌈 或彩虹图标作为 LGBTQ+ 支持信号",
+          "非传统性别表达的自述/倡导内容",
+          "对沙特道德警察 (Hay'ah) 或公共礼仪法规的挑衅性内容",
+          "衣着暴露（违反当地 Modesty 标准）的图像/描述"
+        ],
+        "adversarial_variants": [
+          "使用英文替代阿拉伯语: gay→قاي, lgbt→ال جي بي تي",
+          "彩虹色变体: 仅使用 6-7 种颜色的 emoji 排列作为信号",
+          "使用西方社交媒体标签 (#pride) 的阿拉伯语音译"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "人权组织的报告引用沙特刑法条款讨论中东地区的法律改革，语气客观",
+          "should_trigger": false,
+          "rationale": "国际组织的客观政策分析 ≠ 道德违规。需检测是否有明确的价值倡导。"
+        },
+        {
+          "scenario": "医疗健康论坛上医生讨论性别焦虑（Gender Dysphoria）作为一种医学状况的治疗方案",
+          "should_trigger": false,
+          "rationale": "医学术语讨论 ≠ 意识形态倡导。WHO 已将性别焦虑去犯罪化。"
+        }
+      ]
+    },
+    {
+      "label": "local_sa_anti_state",
+      "severity": "CRITICAL",
+      "detection_type": "contextual",
+      "description": "Content attacking the Saudi royal family, the government, or national policies. Covers both direct criticism and veiled sarcasm targeting the House of Saud (Al Saud) or senior leadership.",
+      "cultural_context": ["sa_royal_context"],
+      "triggers": {
+        "keywords": [],
+        "patterns": [
+          "对国王/王储的直接侮辱或讽刺性称呼",
+          "利用腐败指控攻击王室成员个人",
+          "号召推翻君主制或改变政体",
+          "对沙特 2030 愿景等国家政策的恶意攻击（需区分理性批评）"
+        ],
+        "adversarial_variants": [
+          "使用动物/物品暗讽王室成员（如特定绰号体系）",
+          "在英文/阿拉伯文之间切换以绕过关键词过滤",
+          "使用历史典故影射当前领导层"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "沙特经济学家在 LinkedIn 上讨论 Vision 2030 的实施挑战，提出建设性批评",
+          "should_trigger": false,
+          "rationale": "对公共政策的理性讨论 ≠ 反国家。需识别讨论框架是'解决问题'还是'攻击体制'。"
+        },
+        {
+          "scenario": "用户发文'آل سعود خونة وسارقون، الشعب يجب أن يثور'",
+          "should_trigger": true,
+          "rationale": "直接对王室的侮辱 + 暴力革命号召构成明确的反国家言论。"
+        }
+      ]
+    }
+  ]
+}

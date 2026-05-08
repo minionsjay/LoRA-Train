@@ -1,0 +1,97 @@
+{
+  "country_code": "MX",
+  "country_name": "Mexico",
+  "region": "LATAM",
+  "languages": ["es", "en"],
+  "cultural_contexts": [
+    "mx_narco_context",
+    "mx_political_context",
+    "mx_indigenous_context",
+    "mx_gender_context"
+  ],
+  "base_violations": ["csam", "terrorism", "pornography", "violence_gore", "spam_scam", "self_harm"],
+  "regional_adapter": "LATAM",
+  "local_violations": [
+    {
+      "label": "local_mx_narco_culture",
+      "severity": "CRITICAL",
+      "detection_type": "contextual",
+      "description": "Content that glorifies, promotes, or recruits for drug cartels (cárteles). Includes narcocorrido lyrics used as threats, execution video announcements, cartel propaganda, and recruitment messaging targeting youth. Also covers content that normalizes cartel violence as a legitimate lifestyle choice.",
+      "cultural_context": ["mx_narco_context"],
+      "triggers": {
+        "keywords": [
+          "CJNG", "CDS", "CDN", "CSRL", "CU", "Zetas", "Z",
+          "El Mencho", "El Chapo", "El Marro",
+          "narcocorrido", "corrido alterado", "movimiento alterado",
+          "halcón", "halconeo", "ponchallantas", "encobijado",
+          "encajuelado", "entambado", "levantón", "plaza"
+        ],
+        "patterns": [
+          "毒枭音乐 (Narcocorridos) 歌词作为死亡威胁的载体",
+          "以特定格式发布的处决视频预告（如时间+地点+'regalo'）",
+          "招募信息中的奢华生活方式展示 + 'únete/búscanos' 话术",
+          "对敌对帮派的公开挑战/威胁（retos/desafíos）"
+        ],
+        "adversarial_variants": [
+          "CJNG→C.J.N.G, C-4-letras, la de Jalisco, cuatro letras",
+          "levantón→levant0n, l3vantón, lev@nton",
+          "encobijado→encobij4do, en-cobijado"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "墨西哥记者在报道中引用 Narcocorrido 歌词作为'毒品文化对青少年影响'的社会调查素材",
+          "should_trigger": false,
+          "rationale": "严肃新闻报道/社会学研究的引用 ≠ 颂扬。需检测是否有免责声明或批判性框架。"
+        },
+        {
+          "scenario": "用户在讨论墨西哥文学的论坛中分析 El Narco 题材小说的文学手法",
+          "should_trigger": false,
+          "rationale": "文学/艺术评论场景。需识别讨论的学术性质。"
+        },
+        {
+          "scenario": "用户发布'El Mencho manda saludos a los de la plaza contraria. Pronto vendrá el regalo. Ya saben dónde.'",
+          "should_trigger": true,
+          "rationale": "明确的帮派死亡威胁，包含威胁约定俗成的编码用语（saludos/regalo/saben dónde）。"
+        }
+      ]
+    },
+    {
+      "label": "local_mx_gender_violence",
+      "severity": "HIGH",
+      "detection_type": "contextual",
+      "description": "Extreme machismo rhetoric, femicide (feminicidio) incitement, and gender-based violence threats. Covers the intersection of violent language and misogynistic ideology specific to Mexican Spanish.",
+      "cultural_context": ["mx_gender_context"],
+      "triggers": {
+        "keywords": [
+          "feminicidio", "ni una menos", "mujer tenías que ser",
+          "mátala", "violador", "manada",
+          "machista", "micromachismo"
+        ],
+        "patterns": [
+          "将女性命案称为'教训'或'应得的惩罚'",
+          "针对女性受害者的羞辱叙事（revictimización）",
+          "对女性发声者的死亡/性侵威胁",
+          "极端大男子主义宣言中的暴力承诺"
+        ],
+        "adversarial_variants": [
+          "mujer→muj3r, mujer (零宽空格插入)",
+          "feminazi (将女权主义与法西斯主义关联的蔑称)",
+          "ni una menos→#NiUnaMenos 的正话反说变体"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "用户发布'#NiUnaMenos 今天我们也走上街头抗议性别暴力'",
+          "should_trigger": false,
+          "rationale": "女权主义社会运动的口号不应被误判。需识别支持与反对的语境差异。"
+        },
+        {
+          "scenario": "用户在讨论墨西哥大男子主义的社会学成因时引用'el machismo mexicano es un problema estructural'",
+          "should_trigger": false,
+          "rationale": "社会科学讨论中对现象的命名 ≠ 宣扬该现象。"
+        }
+      ]
+    }
+  ]
+}

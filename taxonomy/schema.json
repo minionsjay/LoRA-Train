@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "taxonomy-schema-v2",
+  "title": "文化感知跨语言安全对齐 — 违规分类树 Schema",
+  "description": "Base + Regional Adapter + Local Delta 三层架构的标签定义规范。解决粒度不一致、跨国家可复用性、安全边界定义、以及文化语境路由四大工程问题。",
+
+  "detection_type_enum": {
+    "description": "标签的检测模式，决定训练时 Hard Mining 分桶策略和推理时的判定逻辑。",
+    "values": {
+      "keyword_sensitive": "以黑词/模式匹配为主，Focal Loss γ=0（标准交叉熵），Easy Negative Mining 即可",
+      "contextual": "需要语义理解上下文，Focal Loss γ=2，必须配合 boundary_cases 做 Hard Negative Mining",
+      "hybrid": "词表触发 + 语境确认双阶段，训练时两阶段 Loss 加权 3:7"
+    }
+  },
+
+  "severity_enum": {
+    "values": {
+      "CRITICAL": "零容忍。命中即 AUTO_BLOCK_AND_REPORT，不进任何后续队列直接上报监管/法务",
+      "HIGH": "高优先级。AUTO_BLOCK，进入人工复核队列",
+      "MEDIUM": "中优先级。QUARANTINE 隔离审查，置信度低时降级为 FLAG",
+      "LOW": "低优先级。FLAG 标记，仅用于统计和趋势预警"
+    }
+  },
+
+  "local_label_schema": {
+    "$id": "local_label",
+    "type": "object",
+    "required": ["label", "severity", "detection_type", "description", "cultural_context", "triggers", "boundary_cases"],
+    "properties": {
+      "label": {
+        "type": "string",
+        "pattern": "^local_[a-z]{2}_[a-z_]+$",
+        "description": "命名规范: local_{ISO3166-1}_{violation_name}"
+      },
+      "severity": {
+        "type": "string",
+        "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+      },
+      "detection_type": {
+        "type": "string",
+        "enum": ["keyword_sensitive", "contextual", "hybrid"]
+      },
+      "description": {
+        "type": "string",
+        "description": "该违规标签的完整定义"
+      },
+      "cultural_context": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "触发该标签的文化语境标识符。推理时先用 Context Detector 判断文化语境，再路由到对应 LoRA。解耦 language≠culture。"
+      },
+      "triggers": {
+        "type": "object",
+        "description": "已知的触发模式，用于对抗性数据合成和黑词库初始化",
+        "properties": {
+          "keywords": {"type": "array", "items": {"type": "string"}, "description": "明确黑词/短语"},
+          "patterns": {"type": "array", "items": {"type": "string"}, "description": "正则或模式描述，如数字代称、emoji 组合"},
+          "adversarial_variants": {"type": "array", "items": {"type": "string"}, "description": "已知的变形/绕过写法"}
+        }
+      },
+      "boundary_cases": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "scenario": {"type": "string", "description": "容易误判的边界场景"},
+            "should_trigger": {"type": "boolean", "description": "true=应判定为违规, false=应放行"},
+            "rationale": {"type": "string", "description": "判定理由，用于合成负样本时的指令"}
+          }
+        },
+        "description": "边界案例定义。数据合成阶段必须针对每个 boundary case 生成等量的训练样本，防止分类器在边界上过拟合。"
+      }
+    }
+  },
+
+  "country_taxonomy_schema": {
+    "$id": "country_taxonomy",
+    "type": "object",
+    "required": ["country_code", "country_name", "region", "languages", "cultural_contexts", "base_violations", "regional_adapter", "local_violations"],
+    "properties": {
+      "country_code": {"type": "string", "pattern": "^[A-Z]{2}$"},
+      "country_name": {"type": "string"},
+      "region": {"type": "string", "enum": ["SEA", "LATAM", "MENA_AFRICA", "EUROPE", "OTHER"]},
+      "languages": {"type": "array", "items": {"type": "string"}},
+      "cultural_contexts": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "该国的文化语境标识符。一个物理国家可能有多个文化语境（如新加坡: sg_chinese_context, sg_malay_context, sg_tamil_context）"
+      },
+      "base_violations": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "从 global 通用基础标签中继承的违规类型"
+      },
+      "regional_adapter": {
+        "type": "string",
+        "description": "所属区域适配器名称，共享区域内的语义子空间"
+      },
+      "local_violations": {
+        "type": "array",
+        "items": {"$ref": "#/local_label_schema"}
+      }
+    }
+  }
+}

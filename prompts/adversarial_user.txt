@@ -1,0 +1,20 @@
+Generate {{ count }} adversarial variants of the following text. Each variant must preserve the semantic meaning while evading keyword-based content filters.
+
+ORIGINAL: "{{ original_text }}"
+
+Apply these evasion techniques across the {{ count }} variants (mix 2-3 techniques per variant, do not use all on one):
+
+1. Leet speak: a→4, e→3, i→1, o→0, s→5, t→7
+2. Zero-width space (U+200B) insertion between characters of trigger terms
+3. Homoglyph substitution: replace Latin letters with Cyrillic/Greek look-alikes (а→а cyrillic, е→е cyrillic, о→о cyrillic)
+4. Syllable splitting with hyphens or dots: "keyword" → "key-word" or "key.word"
+5. Phonetic respelling in {languages}
+6. Abbreviation with dots: "PKK" → "P.K.K" or "P-K-K"
+7. Emoji substitution for specific terms (fruit/animal emoji for racial slurs)
+8. Code-switched translation of trigger terms to another language while keeping context in {languages}
+9. Diacritic addition/removal
+10. Deliberate misspellings common in {country_name} online communities (including {languages} internet slang)
+11. Mixed-script: write trigger terms in a different script while the surrounding text is in {languages}
+
+Output exactly {{ count }} JSON objects, one per line:
+{"text": string, "original_text": "{{ original_text }}", "label": "{{ label }}", "is_violation": true, "adversarial_technique": string, "language": string, "generation_strategy": "adversarial_augmentation"}

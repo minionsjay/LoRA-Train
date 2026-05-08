@@ -1,0 +1,101 @@
+{
+  "country_code": "ID",
+  "country_name": "Indonesia",
+  "region": "SEA",
+  "languages": ["id", "jv", "su"],
+  "cultural_contexts": [
+    "id_islamic_context",
+    "id_secular_context",
+    "id_papua_context",
+    "id_chinese_indonesian_context"
+  ],
+  "base_violations": ["csam", "terrorism", "pornography", "violence_gore", "spam_scam", "self_harm"],
+  "regional_adapter": "SEA",
+  "local_violations": [
+    {
+      "label": "local_id_sara_violation",
+      "severity": "CRITICAL",
+      "detection_type": "hybrid",
+      "description": "Violation of SARA principle (Suku/ethnicity, Agama/religion, Ras/race, Antargolongan/inter-group). The highest red line in Indonesian content moderation. Includes regional hate speech targeting specific islands/ethnic groups, anti-Chinese Indonesian (Chindo) sentiment, and inter-religious provocation.",
+      "cultural_context": ["id_islamic_context", "id_chinese_indonesian_context", "id_papua_context"],
+      "triggers": {
+        "keywords": [
+          "cina", "tionghoa", "kafir", "murtad", "pribumi", "non-pribumi",
+          "cukong", "cokin", "papu", "monyet papua",
+          "Ahmadiyah sesat", "Syiah kafir", "Islam abangan"
+        ],
+        "patterns": [
+          "将特定族裔与动物关联的比喻 (如 monyet+地名)",
+          "指责某宗教群体控制了经济/政治的阴谋论叙事",
+          "针对巴布亚或亚齐分离主义地区的暴力号召",
+          "特定岛屿居民的地域黑 (如'orang X isinya...')"
+        ],
+        "adversarial_variants": [
+          "cina→cin4, c1n4, ch*na, @ina",
+          "pribumi→pr1bum1, pribum!",
+          "使用 4l4y (印尼火星文) 拼写: kafir→k4f1r, k@fir"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "印尼用户在讨论印尼独立史时提及'Cina'一词作为历史名词（如'Tionghoa dalam sejarah kemerdekaan Indonesia'）",
+          "should_trigger": false,
+          "rationale": "历史学术讨论中作为中性名词使用。需检测上下文是否有攻击性定语或负面价值判断。"
+        },
+        {
+          "scenario": "穆斯林用户引用古兰经经文讨论教义时提及非穆斯林群体，语气平和无贬损",
+          "should_trigger": false,
+          "rationale": "宗教讨论中的客观引用 ≠ SARA 攻击。需识别经文引用模式与攻击性语境的差异。"
+        },
+        {
+          "scenario": "用户声称'所有华尼（Chindo）都应该滚出印尼，他们偷走了我们的财富'",
+          "should_trigger": true,
+          "rationale": "明确的经济阴谋论 + 族裔驱逐煽动构成 SARA 违规。"
+        },
+        {
+          "scenario": "举报人引用一条含 SARA 关键词的内容向平台投诉，复述了违规词汇",
+          "should_trigger": false,
+          "rationale": "举报/投诉场景中的引用不应误判为违规。需识别'引用'与'发表'的语义边界。"
+        }
+      ]
+    },
+    {
+      "label": "local_id_pornography_slang",
+      "severity": "HIGH",
+      "detection_type": "keyword_sensitive",
+      "description": "Sexually explicit content using Bahasa Gaul (Indonesian slang) and coded terminology to bypass standard pornography filters. Includes prostitution solicitation (Open BO), video sex (VCS), and coded dating app bios.",
+      "cultural_context": ["id_secular_context"],
+      "triggers": {
+        "keywords": [
+          "bokep", "b0kep", "lonte", "memek", "kontol", "ngentot",
+          "open bo", "openbo", "BO", "vcs", "crot", "colmek",
+          "cewe bispak", "gigolo", "muncikari", "tante girang",
+          "abg mesum", "bahan coli", "sange", "seks bebas"
+        ],
+        "patterns": [
+          "社交媒体 bio 中的隐晦招嫖信号 (如🍌+💰+DM的组合)",
+          "即时通讯群组的成人内容分享邀请",
+          "使用食品/日常物品作为性行为的代指 (如 'ayam kampus')"
+        ],
+        "adversarial_variants": [
+          "bokep→b0k3p, b*kep, bok3p, b.okep",
+          "lonte→l0nte, l*nte, lont3",
+          "vcs→v.c.s, v-c-s, vidcall spesial",
+          "open bo→0pen b0, op3n b0"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "印尼用户在健康论坛讨论性传播疾病的预防知识，使用了医学术语",
+          "should_trigger": false,
+          "rationale": "医学/健康教育场景。需区分医学术语与色情俚语的语境差异。"
+        },
+        {
+          "scenario": "用户发布带有'BO'缩写的商业帖子，实际为'Business Opportunity'的商业广告",
+          "should_trigger": false,
+          "rationale": "BO 在商业场景下为 Business Opportunity 的常用缩写。需结合上下文判断。"
+        }
+      ]
+    }
+  ]
+}

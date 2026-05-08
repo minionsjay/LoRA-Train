@@ -1,0 +1,78 @@
+{
+  "description": "区域适配器 (Regional Adapter) 配置。在 Base 和 Country LoRA 之间插入一层区域共享子空间，解决跨国家标签的可复用性问题。新增国家时只需训练 Country Delta，区域通用语义从 Adapter 继承。",
+  "regional_adapters": {
+    "SEA": {
+      "name": "Southeast Asia Adapter",
+      "shared_semantic_dimensions": [
+        {
+          "dimension": "religious_insult",
+          "description": "针对宗教符号、先知、经典的侮辱语义。泰国佛教/印尼伊斯兰/新加坡多宗教共享底层表征，差异仅在具体的本地黑词和禁忌对象。",
+          "shared_by": ["TH", "ID", "SG"]
+        },
+        {
+          "dimension": "ethnic_slur",
+          "description": "基于族裔/血统的贬损语义。新加坡的种族和谐 + 印尼的 SARA 种族维度共享底层表征。",
+          "shared_by": ["SG", "ID"]
+        },
+        {
+          "dimension": "political_defiance",
+          "description": "反体制/反权威的煽动性语义。泰国冒犯君主 + 泰国政治煽动共享部分底层表征。",
+          "shared_by": ["TH"]
+        }
+      ]
+    },
+    "LATAM": {
+      "name": "Latin America Adapter",
+      "shared_semantic_dimensions": [
+        {
+          "dimension": "cartel_organized_crime",
+          "description": "有组织犯罪/帮派相关暴力语义。墨西哥毒枭 + 巴西民兵/黑帮共享底层表征。",
+          "shared_by": ["MX", "BR"]
+        },
+        {
+          "dimension": "gender_based_violence",
+          "description": "性别暴力和极端大男子主义语义。墨西哥 Femicidio + 巴西针对女性的结构性暴力共享底层表征。",
+          "shared_by": ["MX", "BR"]
+        },
+        {
+          "dimension": "structural_discrimination",
+          "description": "阶级/种族结构性歧视语义。巴西种族主义 + 墨西哥针对原住民的歧视共享底层表征。",
+          "shared_by": ["BR", "MX"]
+        }
+      ]
+    },
+    "MENA_AFRICA": {
+      "name": "Middle East & Africa Adapter",
+      "shared_semantic_dimensions": [
+        {
+          "dimension": "blasphemy_anti_religion",
+          "description": "反宗教/亵渎神圣语义。沙特 + 印尼(伊斯兰维度)共享底层表征。土耳其的世俗主义反宗教语境也可部分复用。",
+          "shared_by": ["SA", "TR"]
+        },
+        {
+          "dimension": "state_criticism",
+          "description": "反国家/反体制语义。沙特反王室 + 土耳其反国家/反国父 + 南非仇外(针对政府移民政策)共享底层表征。",
+          "shared_by": ["SA", "TR"]
+        },
+        {
+          "dimension": "severe_racial_hatred",
+          "description": "极端种族仇恨语义。南非 K-word + 沙特针对外籍劳工的歧视共享底层表征。",
+          "shared_by": ["ZA", "SA"]
+        },
+        {
+          "dimension": "separatism",
+          "description": "分裂主义/独立运动语义。土耳其 PKK + 印尼巴布亚分离主义共享底层表征。",
+          "shared_by": ["TR"]
+        }
+      ]
+    }
+  },
+  "adapter_merge_strategy": {
+    "description": "推理时 LoRA 合并策略。Country LoRA = Regional Adapter (frozen, shared) + Country Delta (trainable, specific)",
+    "weight": {
+      "regional_adapter_alpha": 0.4,
+      "country_delta_alpha": 0.6,
+      "note": "Country Delta 权重更高以保证本地特异性主导判决。Alpha 值可针对每个国家调优。"
+    }
+  }
+}

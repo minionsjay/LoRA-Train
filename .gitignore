@@ -1,0 +1,41 @@
+# API keys
+config.yaml
+
+# Generated data (large files, keep only source code)
+output/
+data_csv/
+
+# Trained models (large files)
+trained_models/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.eggs/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+venv/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Claude
+.claude/

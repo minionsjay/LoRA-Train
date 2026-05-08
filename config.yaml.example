@@ -1,0 +1,38 @@
+# ============================================================
+# 文化感知跨语言安全对齐 — 训练数据生成配置
+# ============================================================
+# 复制为 config.yaml 并填入你的实际配置
+#   cp config.yaml.example config.yaml
+
+llm:
+  base_url: "https://api.openai.com/v1"   # LLM API 地址
+  api_key: "${LLM_API_KEY}"               # 从环境变量读取: export LLM_API_KEY="sk-xxx"
+  model: "gemini-2.5-flash"               # 模型名
+  max_retries: 5
+  timeout_seconds: 120
+  max_concurrency: 10
+
+proxy:
+  enabled: false
+  protocol: "http"
+  host: "127.0.0.1"
+  port: 7890
+  username: ""
+  password: ""
+
+generation:
+  samples_per_label:
+    positive:
+      keyword_sensitive: 150
+      contextual: 150
+      hybrid: 150
+    negative:
+      per_boundary_case: 10
+      general_non_violation: 60
+  temperature: 0.9
+  top_p: 0.95
+  force: false
+  seed: 42
+
+output:
+  dir: "output"

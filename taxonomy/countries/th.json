@@ -1,0 +1,92 @@
+{
+  "country_code": "TH",
+  "country_name": "Thailand",
+  "region": "SEA",
+  "languages": ["th", "en"],
+  "cultural_contexts": [
+    "th_royal_context",
+    "th_political_context",
+    "th_buddhist_context",
+    "th_southern_conflict_context"
+  ],
+  "base_violations": ["csam", "terrorism", "pornography", "violence_gore", "spam_scam", "self_harm"],
+  "regional_adapter": "SEA",
+  "local_violations": [
+    {
+      "label": "local_th_lese_majeste",
+      "severity": "CRITICAL",
+      "detection_type": "contextual",
+      "description": "Any content that defames, insults, or threatens the King, the Queen, the Heir-apparent, or the Regent of Thailand. Covers direct statements, veiled references, and symbolic communication. Section 112 enforcement.",
+      "cultural_context": ["th_royal_context"],
+      "triggers": {
+        "keywords": [],
+        "patterns": [
+          "数字 112 单独出现或与负面形容词组合",
+          "特定历史人物代称 (如นามสกุลอื่น, พวกเขา)",
+          "黑色幽默 emoji 组合 (🐢+💛 等变体)",
+          "特定日期或年份的隐晦引用",
+          "对皇家项目/慈善活动的讽刺性评论"
+        ],
+        "adversarial_variants": [
+          "๑๑๒ (泰文数字替代阿拉伯数字)",
+          "1-1-2 (间隔符拆分)",
+          "หนึ่งหนึ่งสอง (泰语拼读)",
+          "特定 meme 图片的文字转述"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "泰国法学教授在社交媒体用学术语言讨论刑法第112条的历史沿革",
+          "should_trigger": false,
+          "rationale": "学术讨论不构成侮辱或威胁。需识别文本的学术/客观语气，检查是否有价值判断词。"
+        },
+        {
+          "scenario": "国际媒体报道泰国政治新闻时提及王室相关事件，不夹带任何评价性语言",
+          "should_trigger": false,
+          "rationale": "客观新闻报道不应被拦截。需区分'提及'与'攻击'的语义边界。"
+        },
+        {
+          "scenario": "用户发表'那个住在某某宫殿的人应该小心了，人民正在觉醒'",
+          "should_trigger": true,
+          "rationale": "虽然没有直接提及王室成员姓名，但'某某宫殿'结合威胁性语境构成隐晦攻击。"
+        },
+        {
+          "scenario": "用户发布 '112' 三个数字，前后文为体育比分讨论",
+          "should_trigger": false,
+          "rationale": "需判断 112 出现的上下文。体育/日常讨论中的数字不应误判为政治指代。"
+        }
+      ]
+    },
+    {
+      "label": "local_th_political_instigation",
+      "severity": "HIGH",
+      "detection_type": "contextual",
+      "description": "Content inciting illegal political gatherings, violent anti-government protests, or calling for the overthrow of the constitutional order.",
+      "cultural_context": ["th_political_context"],
+      "triggers": {
+        "keywords": ["ระบอบ", "เผด็จการ", "คณะรัฐประหาร", "ม็อบ", "ชุมนุม"],
+        "patterns": [
+          "号召特定日期在敏感地点集会",
+          "传播自制燃烧弹等武器的制作方法",
+          "以 บางกอก/Bangkok 特定地点为目标的暴力暗示"
+        ],
+        "adversarial_variants": [
+          "使用英文音译替代泰文关键词: mob→ม็อบ, dictator→ดิคเตเตอร์",
+          "表情符号替代地名"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "用户发文'周六清迈艺术节见！'并附带合法的文化活动海报",
+          "should_trigger": false,
+          "rationale": "合法集会 ≠ 政治煽动。需检查是否有明确的非法政治诉求。"
+        },
+        {
+          "scenario": "用户发文'是时候走上街头了，带上你的武器，让我们结束这个政权'",
+          "should_trigger": true,
+          "rationale": "明确号召暴力推翻政权，即使未指定具体时间和地点。"
+        }
+      ]
+    }
+  ]
+}

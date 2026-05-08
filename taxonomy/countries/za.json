@@ -1,0 +1,105 @@
+{
+  "country_code": "ZA",
+  "country_name": "South Africa",
+  "region": "MENA_AFRICA",
+  "languages": ["en", "af", "zu", "xh", "st", "tn", "ts", "ss", "ve", "nr"],
+  "cultural_contexts": [
+    "za_racial_context",
+    "za_xenophobia_context",
+    "za_land_reform_context",
+    "za_political_context"
+  ],
+  "base_violations": ["csam", "terrorism", "pornography", "violence_gore", "spam_scam", "self_harm"],
+  "regional_adapter": "MENA_AFRICA",
+  "local_violations": [
+    {
+      "label": "local_za_severe_racism",
+      "severity": "CRITICAL",
+      "detection_type": "keyword_sensitive",
+      "description": "Severe racial hatred and hate speech. The K-word (Kaffir) is the most severe racial slur in South Africa, legally equivalent to the N-word in the US and considered hate speech under the Promotion of Equality and Prevention of Unfair Discrimination Act (PEPUDA). Also covers other severe racial slurs and incitement to racial violence.",
+      "cultural_context": ["za_racial_context"],
+      "triggers": {
+        "keywords": [
+          "kaffir", "kafir", "kaffer", "k word",
+          "boer", "boere", "kill the boer",
+          "coolie", "charra", "charou",
+          "houtkop", "rooinek", "soutpiel",
+          "amaBhunu", "amaBhulu"
+        ],
+        "patterns": [
+          "K-word 的所有变体拼写和发音替代",
+          "'Kill the Boer / Shoot the Boer' — Dubula iBhunu 口号及其变体（极具争议的政治口号，需结合上下文判断是否为煽动暴力）",
+          "种族隔离 (Apartheid) 制度的公然复兴号召或怀旧叙事",
+          "将特定种族群体与动物/疾病/犯罪行为必然关联的叙事",
+          "针对混血族群 (Coloured) 的身份否定或歧视性刻板印象"
+        ],
+        "adversarial_variants": [
+          "kaffir→k*ffir, k4ffir, k@ffir, k-word, the k slur",
+          "使用南非荷兰语 (Afrikaans) 替代英语绕过过滤器",
+          "通过其他南非官方语言 (isiZulu/Sesotho) 拼写变体"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "南非历史学教授在课堂上引述种族隔离时期的历史文献，其中包含 K-word（被标注为历史引文并附有内容警告）",
+          "should_trigger": false,
+          "rationale": "历史教育的负责任的引文使用（有 content warning 和学术框架）不应被拦截。"
+        },
+        {
+          "scenario": "南非黑人用户在使用 K-word 描述自己遭受的种族歧视经历（如'I was called the k-word by my employer'）",
+          "should_trigger": false,
+          "rationale": "受害者描述自己遭受歧视的经历 ≠ 实施歧视。需使用引述 vs 攻击的语义区分。"
+        },
+        {
+          "scenario": "用户发布'All k*ffirs should be killed. South Africa belongs to white people.'",
+          "should_trigger": true,
+          "rationale": "种族仇恨言论的典型模式: 种族贬称 + 暴力号召 + 排斥叙事。"
+        },
+        {
+          "scenario": "用户在政治集会中使用'Dubula iBhunu'口号，综合上下文判断为煽动对白人农场主的暴力",
+          "should_trigger": true,
+          "rationale": "该口号在其原始语境中直接号召对特定族裔的暴力行为。（注意: 需极高准确度，因该口号本身存在法律争议，需检查是否有明确暴力指向的上下文。）"
+        }
+      ]
+    },
+    {
+      "label": "local_za_xenophobia",
+      "severity": "HIGH",
+      "detection_type": "contextual",
+      "description": "Xenophobic violence incitement targeting African foreign nationals (amakwerekwere). Covers attacks on Zimbabwean, Nigerian, Congolese, Somali, and other African immigrant communities. Includes Afrophobia — the systematic dehumanization of immigrants from other African countries.",
+      "cultural_context": ["za_xenophobia_context"],
+      "triggers": {
+        "keywords": [
+          "amakwerekwere", "makwerekwere", "kwerekwere",
+          "foreigners", "illegal aliens", "overstayers",
+          "zama zama", "spaza shop",
+          "Nigerian drug dealers", "Zimbabwean criminals"
+        ],
+        "patterns": [
+          "将外籍非裔移民与犯罪/药物/疾病必然关联的叙事",
+          "号召'清理'特定外国人聚居区的暴力行动",
+          "将就业/住房/医疗资源短缺归咎于外籍移民的煽动性言论",
+          "针对外籍人士经营的小商店 (Spaza Shops) 的攻击号召",
+          "使用 Operation Dudula 等排外运动的名义号召暴力"
+        ],
+        "adversarial_variants": [
+          "amakwerekwere→makwerekwere, kwerekwere, amaguyguy",
+          "使用'他们来了偷走我们的X'的概括性叙事而不用具体贬称",
+          "利用 WhatsApp 语音消息传播的排外语（需语音转文字检测）"
+        ]
+      },
+      "boundary_cases": [
+        {
+          "scenario": "南非公民在社交媒体上表达对失业率的焦虑，提及'政府需要更好地管理移民政策'，无贬损性词汇",
+          "should_trigger": false,
+          "rationale": "对移民政策的理性讨论 ≠ 排外主义。需检测是否有暴力号召或非人化叙事。"
+        },
+        {
+          "scenario": "用户发文'Let's go to Hillbrow tonight and burn all the makwerekwere shops. They must go back to their countries!'",
+          "should_trigger": true,
+          "rationale": "使用贬称 + 暴力号召 + 具体的攻击地点 = 明确的排外暴力煽动。"
+        }
+      ]
+    }
+  ]
+}
