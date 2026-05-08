@@ -113,14 +113,16 @@ class CountrySafetyClassifier(nn.Module):
                 lora_state[name] = param.data.cpu()
         torch.save(lora_state, os.path.join(save_dir, "lora_weights.pt"))
 
-        # Save LoRA config
+        # Save LoRA config (ensure all values are JSON-serializable)
         peft_config = self.encoder.peft_config.get("default", self.encoder.peft_config)
         if hasattr(peft_config, "to_dict"):
             peft_dict = peft_config.to_dict()
         else:
             peft_dict = {"r": 16, "lora_alpha": 32, "lora_dropout": 0.1, "target_modules": ["query_proj", "value_proj"]}
+        # Convert any sets to lists for JSON serialization
+        peft_dict = {k: (list(v) if isinstance(v, set) else v) for k, v in peft_dict.items()}
         with open(os.path.join(save_dir, "lora_config.json"), "w") as f:
-            json.dump(peft_dict, f, indent=2)
+            json.dump(peft_dict, f, indent=2, default=str)
 
         # Save classifier head
         torch.save(self.classifier.state_dict(), os.path.join(save_dir, "classifier.pt"))
