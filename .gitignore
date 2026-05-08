@@ -1,9 +1,9 @@
 # API keys
 config.yaml
 
-# Generated data (large files, keep only source code)
+# Generated data (JSONL — too large for git, use CSV instead)
 output/
-data_csv/
+# data_csv/ is small enough for git and contains all training data
 
 # Trained models (large files)
 trained_models/

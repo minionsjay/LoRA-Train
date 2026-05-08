@@ -24,7 +24,7 @@ lora:
   target_modules: ["query_proj", "value_proj"]   # DeBERTa V3 的 attention 模块名
 
 data:
-  input_dir: "data_csv"            # 数据目录: 支持 CSV (safety_training_data.csv) 或 JSONL (output/{country}/*.jsonl)
+  input_dir: "data_csv"            # 数据目录 (已包含在 git 中，直接可用)
   taxonomy_dir: "taxonomy"         # Taxonomy JSON 所在目录
   output_dir: "trained_models"     # 训练好的模型保存目录
   train_ratio: 0.8

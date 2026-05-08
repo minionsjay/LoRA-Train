@@ -30,7 +30,7 @@ class LoRAConfig:
 
 @dataclass
 class DataConfig:
-    input_dir: str = "output"
+    input_dir: str = "data_csv"
     taxonomy_dir: str = "taxonomy"
     output_dir: str = "trained_models"
     train_ratio: float = 0.8
