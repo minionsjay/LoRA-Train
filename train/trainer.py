@@ -133,7 +133,7 @@ def train_country(
 
             if (batch_idx + 1) % grad_accum_steps == 0 or (batch_idx + 1) == len(train_loader):
                 # Check for NaN gradients before clipping
-                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
                 if torch.isnan(grad_norm) or torch.isinf(grad_norm):
                     logger.warning(f"NaN/Inf gradient at step {batch_idx}, resetting optimizer")
                     optimizer.zero_grad()

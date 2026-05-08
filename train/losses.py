@@ -38,33 +38,39 @@ class PerLabelFocalLoss(nn.Module):
         logger.info(f"Per-label gammas: {dict(zip(label_list, gammas))}")
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        """Compute per-label Focal Loss.
+        """Compute per-label Focal Loss with NaN-safe implementation.
 
-        Args:
-            logits: (batch_size, num_labels) — raw logits
-            targets: (batch_size, num_labels) — multi-hot binary targets
-
-        Returns:
-            scalar loss
+        Uses log-sum-exp trick internally via BCEWithLogitsLoss, then applies
+        focal weight in a numerically stable way (clamping to avoid 0*inf).
         """
+        # Clamp logits to prevent extreme values
+        logits = torch.clamp(logits, min=-10.0, max=10.0)
         probs = torch.sigmoid(logits)
 
-        # BCE loss per element
+        # BCE loss per element — numerically stable via log-sum-exp
         bce = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")
 
-        # Focal weight: (1 - p_t)^gamma
-        # p_t = probs if target=1, else 1-probs
-        pt = torch.where(targets == 1, probs, 1 - probs)
-        focal_weight = (1 - pt) ** self.gammas.unsqueeze(0)
+        # p_t = probability of correct class
+        pt = torch.where(targets == 1, probs, 1.0 - probs)
+        # Clamp pt away from 0 to avoid (1-pt) = 1.0 → focal_weight = 1.0 is fine,
+        # but pt = 0 → (1-pt)^gamma = 1^gamma = 1. Also fine.
+        # The real issue: pt near 0 → bce very large → focal_weight * bce overflows
+        # Fix: clamp bce before applying focal weight
+        bce = torch.clamp(bce, max=50.0)
 
-        # Alpha balancing for positive samples
-        alpha_weight = torch.where(
+        # Focal weight: (1 - p_t)^gamma
+        focal_weight = (1.0 - pt) ** self.gammas.unsqueeze(0)
+
+        # Alpha balancing
+        alpha_t = torch.where(
             targets == 1,
-            torch.tensor(self.alpha, device=targets.device),
-            torch.tensor(1 - self.alpha, device=targets.device),
+            torch.full_like(pt, self.alpha),
+            torch.full_like(pt, 1.0 - self.alpha),
         )
 
-        loss = alpha_weight * focal_weight * bce
+        loss = alpha_t * focal_weight * bce
+        # Final safety clamp
+        loss = torch.clamp(loss, max=100.0)
 
         if self.reduction == "mean":
             return loss.mean()
