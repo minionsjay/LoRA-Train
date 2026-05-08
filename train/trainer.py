@@ -253,10 +253,22 @@ def train_all_countries(
     if country_codes is None:
         # Auto-detect from data directory
         data_dir = Path(config.data.input_dir)
-        country_codes = sorted(
-            d.name for d in data_dir.iterdir()
-            if d.is_dir() and len(list(d.glob("*.jsonl"))) > 0
-        )
+        # Try CSV first (merged file), then JSONL subdirectories
+        merged_csv = data_dir / "safety_training_data.csv"
+        if merged_csv.exists():
+            import csv
+            codes = set()
+            with open(merged_csv, encoding="utf-8-sig") as f:
+                for row in csv.DictReader(f):
+                    cc = row.get("country_code", "").strip().upper()
+                    if cc:
+                        codes.add(cc)
+            country_codes = sorted(codes)
+        else:
+            country_codes = sorted(
+                d.name for d in data_dir.iterdir()
+                if d.is_dir() and len(list(d.glob("*.jsonl"))) > 0
+            )
 
     logger.info(f"Training for countries: {country_codes}")
 
