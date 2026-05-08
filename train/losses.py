@@ -38,30 +38,24 @@ class PerLabelFocalLoss(nn.Module):
         logger.info(f"Per-label gammas: {dict(zip(label_list, gammas))}")
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        """Compute per-label Focal Loss with NaN-safe implementation.
+        """Compute per-label Focal Loss — optimized for sparse multi-label.
 
-        Uses log-sum-exp trick internally via BCEWithLogitsLoss, then applies
-        focal weight in a numerically stable way (clamping to avoid 0*inf).
+        Key insight: in multi-label with 7-8 labels per sample, most label
+        positions are 0. A naive mean() over all positions is dominated by
+        easy negatives, leading the model to always predict 0.
+
+        Solution: compute mean separately for positive and negative positions,
+        then combine. This ensures positive samples contribute equally to loss.
         """
-        # Clamp logits to prevent extreme values
         logits = torch.clamp(logits, min=-10.0, max=10.0)
         probs = torch.sigmoid(logits)
 
-        # BCE loss per element — numerically stable via log-sum-exp
         bce = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")
-
-        # p_t = probability of correct class
-        pt = torch.where(targets == 1, probs, 1.0 - probs)
-        # Clamp pt away from 0 to avoid (1-pt) = 1.0 → focal_weight = 1.0 is fine,
-        # but pt = 0 → (1-pt)^gamma = 1^gamma = 1. Also fine.
-        # The real issue: pt near 0 → bce very large → focal_weight * bce overflows
-        # Fix: clamp bce before applying focal weight
         bce = torch.clamp(bce, max=50.0)
 
-        # Focal weight: (1 - p_t)^gamma
+        pt = torch.where(targets == 1, probs, 1.0 - probs)
         focal_weight = (1.0 - pt) ** self.gammas.unsqueeze(0)
 
-        # Alpha balancing
         alpha_t = torch.where(
             targets == 1,
             torch.full_like(pt, self.alpha),
@@ -69,14 +63,18 @@ class PerLabelFocalLoss(nn.Module):
         )
 
         loss = alpha_t * focal_weight * bce
-        # Final safety clamp
         loss = torch.clamp(loss, max=100.0)
 
-        if self.reduction == "mean":
-            return loss.mean()
-        elif self.reduction == "sum":
-            return loss.sum()
-        return loss
+        # Per-label mean: average positive and negative contributions separately
+        # This prevents the loss from being dominated by easy negatives
+        pos_mask = (targets == 1)
+        neg_mask = (targets == 0)
+
+        pos_loss = loss[pos_mask].mean() if pos_mask.any() else torch.tensor(0.0, device=loss.device)
+        neg_loss = loss[neg_mask].mean() if neg_mask.any() else torch.tensor(0.0, device=loss.device)
+
+        # Weight: positives contribute more (alpha), negatives less (1-alpha)
+        return self.alpha * pos_loss + (1.0 - self.alpha) * neg_loss
 
 
 def get_loss_fn(

@@ -6,14 +6,14 @@ training:
   base_model: "/path/to/mdeberta-v3-base"   # 本地模型路径，改这里
   max_length: 256                 # 最大 token 长度，内容审核文本一般 128-256 够用
   batch_size: 32                  # 16GB 显存可以用 32，加快训练
-  learning_rate: 0.0001           # LoRA 推荐 1e-4 到 5e-4，fp32 用保守值
-  num_epochs: 10                  # 训练轮数，配合 early_stopping 自动停
+  learning_rate: 0.0005           # LoRA 用较高 lr 加速学习（小模型不怕震荡）
+  num_epochs: 20                  # 多跑几轮，让稀疏标签有机会被学到
   warmup_ratio: 0.1               # 前 10% steps 线性 warmup
   weight_decay: 0.01              # L2 正则化
   eval_steps: 20                  # 每隔 N 步验证一次
   logging_steps: 10               # 每隔 N 步打印 loss
   save_best: true                 # 保留验证集最优模型
-  early_stopping_patience: 5      # 验证集 N 轮不提升则停止，至少跑 5 轮
+  early_stopping_patience: 8      # 给足时间，F1 提升慢
   seed: 42
   cpu_batch_size: 2               # CPU 退化用，GPU 机器忽略
 
@@ -38,5 +38,5 @@ focal_loss:
     keyword_sensitive: 0.0         # 标准交叉熵
     contextual: 2.0                # 强 Focal Loss
     hybrid: 1.0                    # 中等 Focal Loss
-  alpha: 0.25                      # 正样本权重平衡因子
+  alpha: 0.75                      # 正样本权重平衡因子（多标签稀疏场景加大，避免全预测为0）
   reduction: "mean"
