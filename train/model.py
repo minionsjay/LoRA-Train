@@ -102,57 +102,90 @@ class CountrySafetyClassifier(nn.Module):
         return logits.float()  # 确保 loss 计算使用 fp32，避免 Half/Float 混合精度问题
 
     def save_pretrained(self, save_dir: str):
-        """Save LoRA adapter + classifier head."""
-        import os
+        """Save LoRA adapter + classifier head.
+
+        Uses torch.save for maximum portability across PEFT versions.
+        """
+        import os, json
         os.makedirs(save_dir, exist_ok=True)
 
-        # Save LoRA weights (PeftModel.save_pretrained writes adapter_config.json + adapter_model.safetensors)
-        self.encoder.save_pretrained(save_dir)
+        # Save LoRA weights (extract only trainable params)
+        lora_state = {}
+        for name, param in self.encoder.named_parameters():
+            if param.requires_grad:
+                lora_state[name] = param.data.cpu()
+        torch.save(lora_state, os.path.join(save_dir, "lora_weights.pt"))
+
+        # Save LoRA config
+        peft_config = self.encoder.peft_config.get("default", self.encoder.peft_config)
+        if hasattr(peft_config, "to_dict"):
+            peft_dict = peft_config.to_dict()
+        else:
+            peft_dict = {"r": 16, "lora_alpha": 32, "lora_dropout": 0.1, "target_modules": ["query_proj", "value_proj"]}
+        with open(os.path.join(save_dir, "lora_config.json"), "w") as f:
+            json.dump(peft_dict, f, indent=2)
 
         # Save classifier head
-        classifier_path = os.path.join(save_dir, "classifier.pt")
-        torch.save(self.classifier.state_dict(), classifier_path)
+        torch.save(self.classifier.state_dict(), os.path.join(save_dir, "classifier.pt"))
 
-        # Verify
-        expected_files = ["adapter_config.json", "classifier.pt"]
-        for fn in expected_files:
-            fp = os.path.join(save_dir, fn)
-            if os.path.exists(fp):
-                logger.debug(f"  ✓ {fn} saved ({os.path.getsize(fp)} bytes)")
-            else:
-                logger.error(f"  ✗ {fn} NOT saved!")
+        # Save label count
+        with open(os.path.join(save_dir, "model_info.json"), "w") as f:
+            json.dump({"num_labels": self.num_labels}, f)
+
         logger.info(f"Saved model to {save_dir}")
 
     @classmethod
     def from_pretrained(cls, save_dir: str, base_model_name: str, num_labels: int):
-        """Load a saved model."""
-        import os
-        from peft import PeftModel
+        """Load a saved model from manual checkpoint."""
+        import os, json
 
-        # Verify save_dir
-        adapter_config = os.path.join(save_dir, "adapter_config.json")
-        if not os.path.exists(adapter_config):
+        lora_path = os.path.join(save_dir, "lora_weights.pt")
+        config_path = os.path.join(save_dir, "lora_config.json")
+        classifier_path = os.path.join(save_dir, "classifier.pt")
+
+        if not os.path.exists(lora_path):
             raise FileNotFoundError(
-                f"Model checkpoint corrupted: {adapter_config} not found.\n"
-                f"Contents of {save_dir}: {os.listdir(save_dir) if os.path.isdir(save_dir) else 'directory not found'}"
+                f"Model checkpoint not found at {save_dir}.\n"
+                f"Contents: {os.listdir(save_dir) if os.path.isdir(save_dir) else 'directory not found'}\n"
+                f"Training may have failed before saving any checkpoint."
             )
 
         # Load base model from local path
-        base = AutoModel.from_pretrained(base_model_name, local_files_only=True)
+        load_kwargs = {"local_files_only": True}
+        if torch.cuda.is_available():
+            load_kwargs["torch_dtype"] = torch.float16
+        base = AutoModel.from_pretrained(base_model_name, **load_kwargs)
         for param in base.parameters():
             param.requires_grad = False
 
-        # Load LoRA
-        encoder = PeftModel.from_pretrained(base, save_dir)
+        # Load LoRA config and inject
+        with open(config_path) as f:
+            peft_dict = json.load(f)
+        peft_config = LoraConfig(
+            task_type=TaskType.FEATURE_EXTRACTION,
+            r=peft_dict.get("r", 16),
+            lora_alpha=peft_dict.get("lora_alpha", 32),
+            lora_dropout=peft_dict.get("lora_dropout", 0.1),
+            target_modules=peft_dict.get("target_modules", ["query_proj", "value_proj"]),
+        )
+        encoder = get_peft_model(base, peft_config)
 
-        # Load classifier
+        # Load LoRA weights
+        lora_state = torch.load(lora_path, map_location="cpu")
+        encoder_state = encoder.state_dict()
+        for name, param in lora_state.items():
+            if name in encoder_state:
+                encoder_state[name] = param
+        encoder.load_state_dict(encoder_state)
+
+        # Build model
         model = cls.__new__(cls)
         super(CountrySafetyClassifier, model).__init__()
         model.num_labels = num_labels
         model.encoder = encoder
 
-        encoder_dtype = next(model.encoder.parameters()).dtype
-        hidden_size = AutoConfig.from_pretrained(base_model_name).hidden_size
+        encoder_dtype = next(encoder.parameters()).dtype
+        hidden_size = AutoConfig.from_pretrained(base_model_name, local_files_only=True).hidden_size
         model.classifier = nn.Sequential(
             nn.Dropout(0.1),
             nn.Linear(hidden_size, hidden_size // 2),
@@ -160,9 +193,8 @@ class CountrySafetyClassifier(nn.Module):
             nn.Dropout(0.1),
             nn.Linear(hidden_size // 2, num_labels),
         ).to(dtype=encoder_dtype)
-        classifier_path = os.path.join(save_dir, "classifier.pt")
+
         state_dict = torch.load(classifier_path, map_location="cpu")
-        # Convert loaded fp32 weights to match encoder dtype
         state_dict = {k: v.to(dtype=encoder_dtype) for k, v in state_dict.items()}
         model.classifier.load_state_dict(state_dict)
         model.classifier.eval()
