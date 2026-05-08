@@ -59,8 +59,8 @@ class CountrySafetyClassifier(nn.Module):
         super().__init__()
         self.num_labels = num_labels
 
-        # Load base model — use fp16 on GPU to save VRAM, fp32 on CPU
-        load_kwargs = {}
+        # Load base model from local path — use fp16 on GPU to save VRAM
+        load_kwargs = {"local_files_only": True}
         if torch.cuda.is_available():
             load_kwargs["torch_dtype"] = torch.float16
         self.encoder = AutoModel.from_pretrained(base_model_name, **load_kwargs)
@@ -106,12 +106,21 @@ class CountrySafetyClassifier(nn.Module):
         import os
         os.makedirs(save_dir, exist_ok=True)
 
-        # Save LoRA weights
+        # Save LoRA weights (PeftModel.save_pretrained writes adapter_config.json + adapter_model.safetensors)
         self.encoder.save_pretrained(save_dir)
 
         # Save classifier head
         classifier_path = os.path.join(save_dir, "classifier.pt")
         torch.save(self.classifier.state_dict(), classifier_path)
+
+        # Verify
+        expected_files = ["adapter_config.json", "classifier.pt"]
+        for fn in expected_files:
+            fp = os.path.join(save_dir, fn)
+            if os.path.exists(fp):
+                logger.debug(f"  ✓ {fn} saved ({os.path.getsize(fp)} bytes)")
+            else:
+                logger.error(f"  ✗ {fn} NOT saved!")
         logger.info(f"Saved model to {save_dir}")
 
     @classmethod
@@ -120,8 +129,16 @@ class CountrySafetyClassifier(nn.Module):
         import os
         from peft import PeftModel
 
-        # Load base model
-        base = AutoModel.from_pretrained(base_model_name)
+        # Verify save_dir
+        adapter_config = os.path.join(save_dir, "adapter_config.json")
+        if not os.path.exists(adapter_config):
+            raise FileNotFoundError(
+                f"Model checkpoint corrupted: {adapter_config} not found.\n"
+                f"Contents of {save_dir}: {os.listdir(save_dir) if os.path.isdir(save_dir) else 'directory not found'}"
+            )
+
+        # Load base model from local path
+        base = AutoModel.from_pretrained(base_model_name, local_files_only=True)
         for param in base.parameters():
             param.requires_grad = False
 

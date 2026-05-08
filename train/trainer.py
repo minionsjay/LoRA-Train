@@ -248,7 +248,7 @@ def train_all_countries(
     import os as _os
     hf_endpoint = _os.environ.get("HF_ENDPOINT", "https://huggingface.co")
     logger.info(f"HF endpoint: {hf_endpoint}")
-    tokenizer = AutoTokenizer.from_pretrained(config.training.base_model)
+    tokenizer = AutoTokenizer.from_pretrained(config.training.base_model, local_files_only=True)
 
     if country_codes is None:
         # Auto-detect from data directory
