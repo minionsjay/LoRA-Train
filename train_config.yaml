@@ -13,7 +13,7 @@ training:
   eval_steps: 20                  # 每隔 N 步验证一次
   logging_steps: 10               # 每隔 N 步打印 loss
   save_best: true                 # 保留验证集最优模型
-  early_stopping_patience: 3      # 验证集 N 轮不提升则停止
+  early_stopping_patience: 5      # 验证集 N 轮不提升则停止，至少跑 5 轮
   seed: 42
   cpu_batch_size: 2               # CPU 退化用，GPU 机器忽略
 

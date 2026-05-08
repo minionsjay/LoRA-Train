@@ -102,7 +102,8 @@ def train_country(
 
     # Training loop
     grad_accum_steps = max(1, 4 // batch_size)  # maintain effective batch of 4
-    best_val_f1 = 0.0
+    best_val_f1 = -1.0
+    best_val_loss = float("inf")
     best_epoch = 0
     patience_counter = 0
     model_saved = False
@@ -187,20 +188,30 @@ def train_country(
             if label.startswith(f"local_") and f"{label}_f1" in val_metrics:
                 logger.info(f"  {label}: f1={val_metrics[f'{label}_f1']:.4f}")
 
-        # Early stopping
-        if val_f1 > best_val_f1:
-            best_val_f1 = val_f1
+        # Save: use val_loss as primary metric, F1 as tiebreaker
+        # (F1 can stay at 0 for many epochs while model is still learning)
+        is_best = False
+        if not model_saved:
+            # Always save first checkpoint
+            is_best = True
+        elif val_f1 >= best_val_f1:
+            # Same or better F1 → check if loss improved
+            if val_f1 > best_val_f1 or avg_val_loss < best_val_loss:
+                is_best = True
+
+        if is_best:
+            best_val_f1 = max(val_f1, best_val_f1)
+            best_val_loss = avg_val_loss if not model_saved else min(avg_val_loss, best_val_loss)
             best_epoch = epoch + 1
             patience_counter = 0
 
-            # Save best model
             save_dir = os.path.join(dc.output_dir, f"lora-{country_code}")
             model.save_pretrained(save_dir)
             model_saved = True
-            logger.info(f"  Saved best model to {save_dir} (val_f1={val_f1:.4f})")
+            logger.info(f"  Saved model to {save_dir} (val_f1={val_f1:.4f}, val_loss={avg_val_loss:.4f})")
         else:
             patience_counter += 1
-            if patience_counter >= tc.early_stopping_patience:
+            if patience_counter >= tc.early_stopping_patience and epoch >= 5:
                 logger.info(f"  Early stopping at epoch {epoch+1}")
                 break
 
@@ -299,9 +310,11 @@ def train_all_countries(
     for cc in country_codes:
         try:
             save_dir = train_country(cc, config, tokenizer, device)
+            if save_dir is None:
+                logger.error(f"Failed to train {cc}: no model saved (NaN loss or data issue)")
             results[cc] = save_dir
         except Exception as e:
-            logger.error(f"Failed to train {cc}: {e}", exc_info=True)
+            logger.error(f"Failed to train {cc}: {e}")
             results[cc] = None
 
     # Summary
