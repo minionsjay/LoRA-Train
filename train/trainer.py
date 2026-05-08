@@ -121,10 +121,22 @@ def train_country(
 
             logits = model(input_ids, attention_mask)
             loss = loss_fn(logits, labels) / grad_accum_steps
+
+            # NaN detection: skip update if loss exploded (fp16 safety net)
+            if torch.isnan(loss) or torch.isinf(loss):
+                logger.warning(f"NaN/Inf loss detected at batch {batch_idx}, skipping update")
+                optimizer.zero_grad()
+                continue
+
             loss.backward()
 
             if (batch_idx + 1) % grad_accum_steps == 0 or (batch_idx + 1) == len(train_loader):
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                # Check for NaN gradients before clipping
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                if torch.isnan(grad_norm) or torch.isinf(grad_norm):
+                    logger.warning(f"NaN/Inf gradient at step {batch_idx}, resetting optimizer")
+                    optimizer.zero_grad()
+                    continue
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad()

@@ -59,11 +59,8 @@ class CountrySafetyClassifier(nn.Module):
         super().__init__()
         self.num_labels = num_labels
 
-        # Load base model from local path — use fp16 on GPU to save VRAM
-        load_kwargs = {"local_files_only": True}
-        if torch.cuda.is_available():
-            load_kwargs["torch_dtype"] = torch.float16
-        self.encoder = AutoModel.from_pretrained(base_model_name, **load_kwargs)
+        # Load base model from local path — fp32 for training stability
+        self.encoder = AutoModel.from_pretrained(base_model_name, local_files_only=True)
 
         for param in self.encoder.parameters():
             param.requires_grad = False
@@ -150,11 +147,8 @@ class CountrySafetyClassifier(nn.Module):
                 f"Training may have failed before saving any checkpoint."
             )
 
-        # Load base model from local path
-        load_kwargs = {"local_files_only": True}
-        if torch.cuda.is_available():
-            load_kwargs["torch_dtype"] = torch.float16
-        base = AutoModel.from_pretrained(base_model_name, **load_kwargs)
+        # Load base model from local path — fp32 for training stability
+        base = AutoModel.from_pretrained(base_model_name, local_files_only=True)
         for param in base.parameters():
             param.requires_grad = False
 

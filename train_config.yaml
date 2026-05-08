@@ -6,7 +6,7 @@ training:
   base_model: "/path/to/mdeberta-v3-base"   # 本地模型路径，改这里
   max_length: 256                 # 最大 token 长度，内容审核文本一般 128-256 够用
   batch_size: 32                  # 16GB 显存可以用 32，加快训练
-  learning_rate: 0.0002           # LoRA 推荐 1e-4 到 5e-4
+  learning_rate: 0.0001           # LoRA 推荐 1e-4 到 5e-4，fp32 用保守值
   num_epochs: 10                  # 训练轮数，配合 early_stopping 自动停
   warmup_ratio: 0.1               # 前 10% steps 线性 warmup
   weight_decay: 0.01              # L2 正则化
