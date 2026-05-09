@@ -175,6 +175,108 @@ async def generate_base_violations(
     return all_samples
 
 
+def build_base_negative_prompt(base_v: dict, languages: list[str], country_name: str, count: int, neg_type: str) -> dict:
+    """Build prompt for base label negative samples (boundary or general)."""
+    if neg_type == "boundary":
+        system = (
+            "You are a boundary-case specialist for a global content safety classifier. "
+            "Generate text that SUPERFICIALLY RELATES to a violation category but is NOT actually a violation. "
+            "These hard negatives must be plausible and genuinely challenging for a classifier to distinguish. "
+            "Output ONLY valid JSON objects, one per line. No markdown fences."
+        )
+        user = (
+            f"Generate {count} negative (NON-violation) training samples that look similar to the violation "
+            f"but are actually safe.\n\n"
+            f"=== VIOLATION LABEL (DO NOT generate this type of content) ===\n"
+            f"Label: {base_v['label']}\n"
+            f"Description: {base_v['description']}\n\n"
+            f"=== SAFE BOUNDARY (generate content IN this category) ===\n"
+            f"{base_v['boundary']}\n\n"
+            f"=== GENERATION RULES ===\n"
+            f"1. Languages: mix of {', '.join(languages)} with natural code-switching\n"
+            f"2. {country_name} context: reference {country_name} locations, culture, or current events\n"
+            f"3. Vary perspectives: academic analysis, news reporting, personal narrative, cultural discussion, legal/medical professional\n"
+            f"4. Vary length: 10-200 words\n"
+            f"5. Every sample must be clearly SAFE per the boundary definition above\n"
+            f"6. Some samples should use words/terms that overlap with the violation domain but in a clearly benign way\n\n"
+            f"Output exactly {count} JSON objects, one per line:\n"
+            f'{{"text": string, "label": "{base_v["label"]}", "is_violation": false, '
+            f'"severity": "{base_v["severity"]}", "detection_type": "{base_v["detection_type"]}", '
+            f'"language": string, "generation_strategy": "base_boundary_negative", "metadata": {{"rationale": string}}}}'
+        )
+    else:  # general non-violation
+        system = (
+            "You are a data generator for content safety classifier training. "
+            "Generate completely benign, harmless social media posts that have NO relation to any content violation. "
+            "The posts should be natural, realistic user-generated content in the specified languages. "
+            "Output ONLY valid JSON objects, one per line. No markdown fences."
+        )
+        user = (
+            f"Generate {count} completely benign and harmless social media posts, comments, or messages "
+            f"in {', '.join(languages)} (mix naturally, include some code-switching where realistic).\n\n"
+            f"Country context: {country_name}. Reference local places, culture, food, events where natural.\n"
+            f"Topics: everyday life, food, technology, travel, family, sports, music, hobbies, work, school.\n\n"
+            f"Output exactly {count} JSON objects, one per line:\n"
+            f'{{"text": string, "label": "{base_v["label"]}", "is_violation": false, '
+            f'"severity": "{base_v["severity"]}", "detection_type": "{base_v["detection_type"]}", '
+            f'"language": string, "generation_strategy": "base_general_negative", '
+            f'"metadata": {{"rationale": "Random benign content unrelated to any violation"}}}}'
+        )
+
+    return {
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+    }
+
+
+async def generate_base_negatives(
+    country: CountryTaxonomy,
+    llm_client: LLMClient,
+    boundary_per_label: int = 15,
+    general_per_label: int = 40,
+    temperature: float = 0.75,
+) -> list[dict]:
+    """Generate negative samples for base labels (boundary + general non-violation)."""
+    all_samples = []
+    languages = country.languages
+    country_name = country.country_name
+
+    for base_v in BASE_VIOLATIONS:
+        # Boundary negatives
+        logger.info(f"  Generating {boundary_per_label} boundary negatives for {base_v['label']}...")
+        bnd_prompt = build_base_negative_prompt(base_v, languages, country_name, boundary_per_label, "boundary")
+        bnd_samples = await generate_and_parse(llm_client, bnd_prompt, temperature * 0.85)
+        for s in bnd_samples:
+            s.setdefault("country_code", country.country_code)
+            s.setdefault("label", base_v["label"])
+            s.setdefault("is_violation", False)
+            s.setdefault("severity", base_v["severity"])
+            s.setdefault("detection_type", base_v["detection_type"])
+            s.setdefault("language", languages[0])
+            s.setdefault("generation_strategy", "base_boundary_negative")
+        all_samples.extend(bnd_samples)
+        logger.info(f"    Got {len(bnd_samples)} boundary negatives")
+
+        # General non-violation
+        logger.info(f"  Generating {general_per_label} general negatives for {base_v['label']}...")
+        gen_prompt = build_base_negative_prompt(base_v, languages, country_name, general_per_label, "general")
+        gen_samples = await generate_and_parse(llm_client, gen_prompt, temperature * 0.7)
+        for s in gen_samples:
+            s.setdefault("country_code", country.country_code)
+            s.setdefault("label", base_v["label"])
+            s.setdefault("is_violation", False)
+            s.setdefault("severity", base_v["severity"])
+            s.setdefault("detection_type", base_v["detection_type"])
+            s.setdefault("language", languages[0])
+            s.setdefault("generation_strategy", "base_general_negative")
+        all_samples.extend(gen_samples)
+        logger.info(f"    Got {len(gen_samples)} general negatives")
+
+    return all_samples
+
+
 def export_to_csv(
     jsonl_dir: str = "output",
     output_dir: str = "data_csv",
@@ -283,7 +385,7 @@ def show_stats(jsonl_dir: str = "output"):
 
 
 async def generate_base_main(args):
-    """CLI handler: generate base violations."""
+    """CLI handler: generate base violations + negatives."""
     config = load_config(args.config)
     llm_client = LLMClient(config.llm, config.proxy)
 
@@ -295,21 +397,41 @@ async def generate_base_main(args):
 
     try:
         for country in countries:
-            logger.info(f"Generating base violations for {country.country_code} ({country.country_name})...")
-            samples = await generate_base_violations(
-                country, llm_client,
-                samples_per_label=args.samples_per_label,
-                temperature=config.generation.temperature,
-            )
-            logger.info(f"  Total: {len(samples)} base samples for {country.country_code}")
-
-            # Write to JSONL
-            out_dir = Path(config.output.dir) / country.country_code
+            cc = country.country_code
+            logger.info(f"Generating base data for {cc} ({country.country_name})...")
+            out_dir = Path(config.output.dir) / cc
             out_dir.mkdir(parents=True, exist_ok=True)
 
-            # Group by label
+            all_samples = []
+
+            # Phase 1: Positive samples
+            if not args.negatives_only:
+                pos_samples = await generate_base_violations(
+                    country, llm_client,
+                    samples_per_label=args.samples_per_label,
+                    temperature=config.generation.temperature,
+                )
+                logger.info(f"  Phase 1: {len(pos_samples)} positive samples")
+                all_samples.extend(pos_samples)
+            else:
+                logger.info("  Phase 1: SKIPPED (negatives-only mode) — loading existing data")
+
+            # Phase 2: Negative samples (boundary + general)
+            boundary_count = max(10, args.samples_per_label // 3)
+            general_count = max(30, args.samples_per_label)
+            neg_samples = await generate_base_negatives(
+                country, llm_client,
+                boundary_per_label=boundary_count,
+                general_per_label=general_count,
+                temperature=config.generation.temperature,
+            )
+            logger.info(f"  Phase 2: {len(neg_samples)} negative samples")
+            all_samples.extend(neg_samples)
+            logger.info(f"  Total: {len(all_samples)} base samples for {cc}")
+
+            # Group by label and write
             by_label = {}
-            for s in samples:
+            for s in all_samples:
                 lbl = s["label"]
                 by_label.setdefault(lbl, []).append(s)
 
@@ -319,7 +441,9 @@ async def generate_base_main(args):
                 with open(fpath, mode, encoding="utf-8") as f:
                     for row in rows:
                         f.write(json.dumps(row, ensure_ascii=False) + "\n")
-                logger.info(f"    Saved {len(rows)} rows to {fpath}")
+                pos = sum(1 for r in rows if r.get("is_violation"))
+                neg = sum(1 for r in rows if not r.get("is_violation"))
+                logger.info(f"    {lbl}: {len(rows)} rows ({pos}+ {neg}-) → {fpath}")
 
     finally:
         await llm_client.close()
@@ -335,6 +459,7 @@ def main():
     p_gen.add_argument("--countries", help="逗号分隔的国家代码")
     p_gen.add_argument("--samples-per-label", type=int, default=30)
     p_gen.add_argument("--force", action="store_true")
+    p_gen.add_argument("--negatives-only", action="store_true", help="仅生成负样本（跳过正样本）")
 
     # export-csv
     p_exp = sub.add_parser("export-csv", help="导出 JSONL 到 CSV")
