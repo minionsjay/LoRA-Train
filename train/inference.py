@@ -50,9 +50,17 @@ def load_model(save_dir: str, base_model_name: str, device: torch.device):
 
 
 def predict(model, tokenizer, texts: list[str], label_list: list[str],
-            device: torch.device, threshold: float = 0.5, max_length: int = 256
+            device: torch.device, thresholds: dict[str, float] | None = None,
+            default_threshold: float = 0.5, max_length: int = 256
             ) -> list[dict]:
-    """Run inference on a list of texts. Returns list of prediction dicts."""
+    """Run inference on a list of texts. Returns list of prediction dicts.
+
+    Args:
+        thresholds: Per-label decision thresholds. If None, uses default_threshold for all.
+    """
+    if thresholds is None:
+        thresholds = {}
+
     results = []
     model.eval()
 
@@ -74,9 +82,10 @@ def predict(model, tokenizer, texts: list[str], label_list: list[str],
             result = {"text": text}
             triggered = []
             for i, label in enumerate(label_list):
+                t = thresholds.get(label, default_threshold)
                 result[f"prob_{label}"] = float(probs[i])
-                result[f"flag_{label}"] = bool(probs[i] >= threshold)
-                if probs[i] >= threshold:
+                result[f"flag_{label}"] = bool(probs[i] >= t)
+                if probs[i] >= t:
                     triggered.append(label)
 
             result["is_violation"] = len(triggered) > 0
@@ -87,9 +96,12 @@ def predict(model, tokenizer, texts: list[str], label_list: list[str],
 
 
 def predict_to_csv(model, tokenizer, texts: list[str], label_list: list[str],
-                   device: torch.device, output_path: str, threshold: float = 0.5):
+                   device: torch.device, output_path: str,
+                   thresholds: dict[str, float] | None = None,
+                   default_threshold: float = 0.5):
     """Run inference and save results to CSV."""
-    results = predict(model, tokenizer, texts, label_list, device, threshold)
+    results = predict(model, tokenizer, texts, label_list, device,
+                      thresholds, default_threshold)
 
     # Build column names
     prob_cols = [f"prob_{l}" for l in label_list]
@@ -124,7 +136,7 @@ def main():
     parser.add_argument("--file", help="文本文件，每行一条")
     parser.add_argument("--csv", help="CSV 输入文件（需含 text 列）")
     parser.add_argument("--output", "-o", default="predictions.csv", help="输出 CSV 路径")
-    parser.add_argument("--threshold", type=float, default=0.5, help="判定阈值")
+    parser.add_argument("--threshold", type=float, default=0.5, help="默认判定阈值（当模型没有 per-label thresholds 时使用）")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
 
@@ -145,6 +157,7 @@ def main():
 
     # Load saved training results if available
     results_path = os.path.join(args.model, "results.json")
+    thresholds = None
     if os.path.exists(results_path):
         with open(results_path) as f:
             train_results = json.load(f)
@@ -158,6 +171,14 @@ def main():
             for label in label_list:
                 if f"{label}_f1" in tm:
                     print(f"    {label}: F1={tm[f'{label}_f1']:.4f}")
+        # Load per-label optimal thresholds
+        if "thresholds" in train_results:
+            thresholds = train_results["thresholds"]
+            print(f"\nPer-label thresholds (from validation tuning):")
+            for label, t in sorted(thresholds.items()):
+                print(f"  {label}: {t:.2f}")
+        else:
+            print(f"\nUsing default threshold: {args.threshold}")
 
     # Collect input texts
     texts = []
@@ -181,7 +202,7 @@ def main():
     # Run inference
     if len(texts) == 1 and args.text:
         # Single text: print detailed results
-        results = predict(model, tokenizer, texts, label_list, device, args.threshold)
+        results = predict(model, tokenizer, texts, label_list, device, thresholds, args.threshold)
         r = results[0]
         print(f"\nText: {r['text'][:200]}...")
         print(f"Violation: {r['is_violation']}")
@@ -190,11 +211,12 @@ def main():
         print("\nPer-label probabilities:")
         for label in label_list:
             prob = r[f"prob_{label}"]
+            t = thresholds.get(label, args.threshold) if thresholds else args.threshold
             flag = "⚠️" if r[f"flag_{label}"] else "✓"
             bar = "█" * int(prob * 20)
-            print(f"  {flag} {label:<45} {prob:.4f} {bar}")
+            print(f"  {flag} {label:<45} {prob:.4f} (t={t:.2f}) {bar}")
     else:
-        predict_to_csv(model, tokenizer, texts, label_list, device, args.output, args.threshold)
+        predict_to_csv(model, tokenizer, texts, label_list, device, args.output, thresholds, args.threshold)
 
 
 if __name__ == "__main__":

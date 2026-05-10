@@ -132,20 +132,38 @@ class SafetyDataset(Dataset):
         self.texts = []
         self.labels = []  # multi-hot tensors
 
+        # Aggregate all annotations per unique text into a single multi-hot vector.
+        # Previously each CSV row was a separate sample, causing the same text to
+        # appear with conflicting label vectors (e.g. hate=0 in one row, hate=1 in another).
+        text_label_map: dict[str, list[tuple[str, bool]]] = {}
+        text_order = []  # preserve insertion order
+
         for s in samples:
-            text = s.get("text", "")
+            text = s.get("text", "").strip()
             if not text:
                 continue
 
             label_name = s.get("label", "")
             is_violation = s.get("is_violation", False)
+            if isinstance(is_violation, str):
+                is_violation = is_violation.lower() == "true"
 
-            # Build multi-hot vector
+            if text not in text_label_map:
+                text_label_map[text] = []
+                text_order.append(text)
+
+            text_label_map[text].append((label_name, is_violation))
+
+        for text in text_order:
+            annotations = text_label_map[text]
             label_vec = [0.0] * self.num_labels
 
-            if label_name in self.label_to_idx:
-                idx = self.label_to_idx[label_name]
-                label_vec[idx] = 1.0 if is_violation else 0.0
+            for label_name, is_violation in annotations:
+                if label_name in self.label_to_idx:
+                    idx = self.label_to_idx[label_name]
+                    # If any annotation says this text is a violation for this label,
+                    # mark it as positive (take max / logical OR)
+                    label_vec[idx] = max(label_vec[idx], 1.0 if is_violation else 0.0)
 
             self.texts.append(text)
             self.labels.append(label_vec)

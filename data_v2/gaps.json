@@ -1,0 +1,27 @@
+{
+  "base_pos": {
+    "BR/base_spam_fraud": 172,
+    "BR/base_self_harm": 530,
+    "ID/base_spam_fraud": 241,
+    "ID/base_self_harm": 520,
+    "MX/base_spam_fraud": 411,
+    "MX/base_self_harm": 632,
+    "SA/base_self_harm": 640,
+    "SG/base_violence_gore": 247,
+    "SG/base_self_harm": 624,
+    "TH/base_csam": 774,
+    "TH/base_spam_fraud": 253,
+    "TH/base_self_harm": 586,
+    "TR/base_spam_fraud": 230,
+    "TR/base_self_harm": 635,
+    "ZA/base_self_harm": 650
+  },
+  "local_pos": {},
+  "safe_neg": {
+    "SA": {
+      "total": 2056,
+      "need_total": 0,
+      "need_hard": 944
+    }
+  }
+}

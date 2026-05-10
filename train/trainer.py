@@ -19,20 +19,68 @@ from .dataset import prepare_country_data, SafetyDataset
 logger = logging.getLogger(__name__)
 
 
-def compute_metrics(logits: torch.Tensor, targets: torch.Tensor, label_list: list[str], threshold: float = 0.5) -> dict:
-    """Compute per-label and macro-averaged metrics."""
-    probs = torch.sigmoid(logits)
-    preds = (probs > threshold).float()
+def find_optimal_thresholds(logits: torch.Tensor, targets: torch.Tensor, label_list: list[str]) -> dict[str, float]:
+    """Find per-label optimal thresholds via F1 maximization on validation set.
 
-    logits_np = logits.detach().cpu().numpy()
+    A static 0.5 threshold fails for imbalanced multi-label because Focal Loss
+    produces uncalibrated probabilities. Each label needs its own threshold tuned
+    against the validation data.
+    """
+    probs = torch.sigmoid(logits).detach().cpu().numpy()
     targets_np = targets.detach().cpu().numpy()
-    preds_np = preds.detach().cpu().numpy()
+
+    thresholds = {}
+    candidates = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7]
+
+    for i, label in enumerate(label_list):
+        y_true = targets_np[:, i]
+        if y_true.sum() == 0:
+            thresholds[label] = 0.5
+            continue
+
+        best_t, best_f1 = 0.5, 0.0
+        for t in candidates:
+            y_pred = (probs[:, i] >= t).astype(int)
+            f1 = f1_score(y_true, y_pred, zero_division=0)
+            if f1 > best_f1:
+                best_f1 = f1
+                best_t = t
+        thresholds[label] = best_t
+
+    return thresholds
+
+
+def compute_metrics(
+    logits: torch.Tensor,
+    targets: torch.Tensor,
+    label_list: list[str],
+    thresholds: dict[str, float] | None = None,
+) -> dict:
+    """Compute per-label and macro-averaged metrics.
+
+    Args:
+        thresholds: Per-label decision thresholds. If None, uses 0.5 for all labels.
+                    Use find_optimal_thresholds() to tune on validation set.
+    """
+    probs = torch.sigmoid(logits)
+
+    targets_np = targets.detach().cpu().numpy()
+    probs_np = probs.detach().cpu().numpy()
+
+    if thresholds is None:
+        thresholds = {l: 0.5 for l in label_list}
+
+    # Apply per-label thresholds
+    preds_np = np.zeros_like(probs_np)
+    for i, label in enumerate(label_list):
+        t = thresholds.get(label, 0.5)
+        preds_np[:, i] = (probs_np[:, i] >= t).astype(float)
 
     metrics = {}
 
     # Per-label metrics
     for i, label in enumerate(label_list):
-        if targets_np[:, i].sum() > 0:  # Only compute if label has positive samples
+        if targets_np[:, i].sum() > 0:
             metrics[f"{label}_f1"] = float(f1_score(targets_np[:, i], preds_np[:, i], zero_division=0))
             metrics[f"{label}_precision"] = float(precision_score(targets_np[:, i], preds_np[:, i], zero_division=0))
             metrics[f"{label}_recall"] = float(recall_score(targets_np[:, i], preds_np[:, i], zero_division=0))
@@ -139,7 +187,7 @@ def train_country(
 
             if (batch_idx + 1) % grad_accum_steps == 0 or (batch_idx + 1) == len(train_loader):
                 # Check for NaN gradients before clipping
-                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 if torch.isnan(grad_norm) or torch.isinf(grad_norm):
                     logger.warning(f"NaN/Inf gradient at step {batch_idx}, resetting optimizer")
                     optimizer.zero_grad()
@@ -235,6 +283,25 @@ def train_country(
     model.to(device)
     model.eval()
 
+    # Re-run validation to find optimal per-label thresholds
+    all_val_logits, all_val_targets = [], []
+    with torch.no_grad():
+        for batch in val_loader:
+            input_ids = batch["input_ids"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
+            labels = batch["labels"].to(device)
+            logits = model(input_ids, attention_mask)
+            all_val_logits.append(logits)
+            all_val_targets.append(labels)
+
+    val_logits = torch.cat(all_val_logits, dim=0)
+    val_targets = torch.cat(all_val_targets, dim=0)
+    optimal_thresholds = find_optimal_thresholds(val_logits, val_targets, label_list)
+    logger.info(f"[{country_code}] Optimal thresholds:")
+    for label, t in sorted(optimal_thresholds.items()):
+        logger.info(f"  {label}: {t:.2f}")
+
+    # Test evaluation with optimal thresholds
     all_logits, all_targets = [], []
     with torch.no_grad():
         for batch in test_loader:
@@ -247,17 +314,17 @@ def train_country(
 
     test_logits = torch.cat(all_logits, dim=0)
     test_targets = torch.cat(all_targets, dim=0)
-    test_metrics = compute_metrics(test_logits, test_targets, label_list)
+    test_metrics = compute_metrics(test_logits, test_targets, label_list, optimal_thresholds)
 
-    logger.info(f"[{country_code}] Test Results:")
+    logger.info(f"[{country_code}] Test Results (per-label thresholds):")
     logger.info(f"  Macro F1: {test_metrics['macro_f1']:.4f}")
     logger.info(f"  Macro Precision: {test_metrics['macro_precision']:.4f}")
     logger.info(f"  Macro Recall: {test_metrics['macro_recall']:.4f}")
     for label in label_list:
         if f"{label}_f1" in test_metrics:
-            logger.info(f"  {label}: f1={test_metrics[f'{label}_f1']:.4f}")
+            logger.info(f"  {label}: f1={test_metrics[f'{label}_f1']:.4f} (t={optimal_thresholds.get(label, 0.5):.2f})")
 
-    # Save results
+    # Save results (include thresholds for inference)
     results = {
         "country_code": country_code,
         "num_labels": num_labels,
@@ -265,6 +332,7 @@ def train_country(
         "best_val_f1": best_val_f1,
         "best_epoch": best_epoch,
         "test_metrics": test_metrics,
+        "thresholds": optimal_thresholds,
         "history": history,
         "timestamp": datetime.now().isoformat(),
     }

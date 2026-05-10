@@ -38,5 +38,5 @@ focal_loss:
     keyword_sensitive: 0.0         # 标准交叉熵
     contextual: 2.0                # 强 Focal Loss
     hybrid: 1.0                    # 中等 Focal Loss
-  alpha: 0.75                      # 正样本权重平衡因子（多标签稀疏场景加大，避免全预测为0）
+  alpha: 0.5                       # 正负样本平衡因子（0.5 = 等权，修复标签聚合后不再需要偏向正样本）
   reduction: "mean"
